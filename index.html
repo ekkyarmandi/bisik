@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .mic-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            background: #4a5568;
+            color: white;
+        }
+        
+        .mic-button.off {
+            background: #4a5568;
+            color: #a0aec0;
+        }
+        
+        .mic-button.on {
+            background: #e53e3e;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        .mic-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
+        }
+        
+        .transcription-panel {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            min-height: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .panel-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .transcription-text {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #4a5568;
+            min-height: 200px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status-indicator {
+            font-size: 14px;
+            color: #718096;
+            text-align: center;
+            margin-top: 16px;
+            font-style: italic;
+        }
+        
+        .status-indicator.recording {
+            color: #e53e3e;
+            font-weight: 600;
+        }
+        
+        .mic-icon::before {
+            content: "🎤";
+        }
+        
+        .panel-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+        
+        .action-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            min-width: 80px;
+        }
+        
+        .copy-button {
+            background: #3182ce;
+            color: white;
+        }
+        
+        .copy-button:hover {
+            background: #2c5aa0;
+            transform: translateY(-1px);
+        }
+        
+        .copy-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .clear-button {
+            background: #e53e3e;
+            color: white;
+        }
+        
+        .clear-button:hover {
+            background: #c53030;
+            transform: translateY(-1px);
+        }
+        
+        .clear-button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button id="micButton" class="mic-button off" onclick="toggleRecording()">
+            <span class="mic-icon"></span>
+        </button>
+        
+        <div class="transcription-panel">
+            <div class="panel-header">Transcription</div>
+            <div id="transcriptionText" class="transcription-text"></div>
+            <div id="statusIndicator" class="status-indicator">Click the microphone to start recording</div>
+            <div class="panel-actions">
+                <button id="copyButton" class="action-button copy-button" onclick="copyTranscription()" disabled>
+                    Copy
+                </button>
+                <button id="clearButton" class="action-button clear-button" onclick="clearTranscriptionManually()" disabled>
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const { ipcRenderer } = require('electron');
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        
+        function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    sendAudioForTranscription(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                updateUI();
+                clearTranscription();
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                updateStatus('Error: Could not access microphone');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                updateUI();
+            }
+        }
+        
+        function updateUI() {
+            const button = document.getElementById('micButton');
+            if (isRecording) {
+                button.classList.remove('off');
+                button.classList.add('on');
+                updateStatus('Recording... Click to stop');
+            } else {
+                button.classList.remove('on');
+                button.classList.add('off');
+                updateStatus('Processing audio...');
+            }
+        }
+        
+        function updateStatus(message) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.textContent = message;
+            indicator.classList.toggle('recording', isRecording);
+        }
+        
+        function clearTranscription() {
+            document.getElementById('transcriptionText').textContent = '';
+            updateButtonStates();
+        }
+        
+        function updateTranscription(text) {
+            document.getElementById('transcriptionText').textContent = text;
+            updateStatus('Transcription complete');
+            updateButtonStates();
+        }
+        
+        function copyTranscription() {
+            const text = document.getElementById('transcriptionText').textContent;
+            if (text) {
+                navigator.clipboard.writeText(text).then(() => {
+                    updateStatus('Text copied to clipboard');
+                    setTimeout(() => {
+                        updateStatus('Transcription complete');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text:', err);
+                    updateStatus('Failed to copy text');
+                });
+            }
+        }
+        
+        function clearTranscriptionManually() {
+            document.getElementById('transcriptionText').textContent = '';
+            updateStatus('Transcription cleared');
+            updateButtonStates();
+        }
+        
+        function updateButtonStates() {
+            const text = document.getElementById('transcriptionText').textContent;
+            const hasText = text.trim().length > 0;
+            
+            document.getElementById('copyButton').disabled = !hasText;
+            document.getElementById('clearButton').disabled = !hasText;
+        }
+        
+        function sendAudioForTranscription(audioBlob) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const arrayBuffer = reader.result;
+                ipcRenderer.send('transcribe-audio', arrayBuffer);
+            };
+            reader.readAsArrayBuffer(audioBlob);
+        }
+        
+        // Listen for transcription results
+        ipcRenderer.on('transcription-result', (event, result) => {
+            if (result.success) {
+                updateTranscription(result.text);
+            } else {
+                updateStatus(`Error: ${result.error}`);
+            }
+        });
+        
+        // Initialize UI
+        updateStatus('Click the microphone to start recording');
+        updateButtonStates();
+    </script>
+</body>
+</html>

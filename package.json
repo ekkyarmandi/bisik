@@ -1,0 +1,27 @@
+{
+  "name": "electron-hello-world",
+  "version": "1.0.0",
+  "description": "Electron Hello World app with button and tray",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev"
+  },
+  "build": {
+    "mac": {
+      "extendInfo": {
+        "NSCameraUseContinuityCameraDeviceType": true,
+        "NSMicrophoneUsageDescription": "This app needs access to the microphone for voice transcription."
+      }
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.0.0",
+    "dotenv": "^16.0.0"
+  }
+}

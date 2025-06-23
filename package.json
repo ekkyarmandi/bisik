@@ -1,14 +1,24 @@
 {
-  "name": "electron-hello-world",
-  "version": "1.0.0",
-  "description": "Electron Hello World app with button and tray",
+  "name": "electron-speech-recognition-app",
+  "version": "0.1.0",
+  "description": "Speech recognition app built with Electron JS",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "dist": "electron-builder --publish=never"
   },
   "build": {
+    "appId": "com.whisper.transcription",
+    "productName": "Whisper Transcription",
+    "directories": {
+      "output": "dist"
+    },
     "mac": {
+      "category": "public.app-category.productivity",
+      "target": "dmg",
       "extendInfo": {
         "NSCameraUseContinuityCameraDeviceType": true,
         "NSMicrophoneUsageDescription": "This app needs access to the microphone for voice transcription."
@@ -16,12 +26,15 @@
     }
   },
   "devDependencies": {
-    "electron": "^28.0.0"
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-rebuild": "^3.2.9",
+    "tailwindcss": "^4.1.10"
   },
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "openai": "^4.0.0",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "openai": "^4.0.0"
   }
 }

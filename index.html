@@ -1,320 +1,681 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Transcription</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
-        .container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 30px;
-            width: 100%;
-            max-width: 600px;
-        }
-        
-        .mic-button {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            background: #4a5568;
-            color: white;
-        }
-        
-        .mic-button.off {
-            background: #4a5568;
-            color: #a0aec0;
-        }
-        
-        .mic-button.on {
-            background: #e53e3e;
-            color: white;
-            animation: pulse 2s infinite;
-        }
-        
-        .mic-button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-        }
-        
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
-        }
-        
-        .transcription-panel {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 24px;
-            min-height: 300px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .panel-header {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 16px;
-            text-align: center;
-        }
-        
-        .transcription-text {
-            font-size: 16px;
-            line-height: 1.6;
-            color: #4a5568;
-            min-height: 200px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        
-        .status-indicator {
-            font-size: 14px;
-            color: #718096;
-            text-align: center;
-            margin-top: 16px;
-            font-style: italic;
-        }
-        
-        .status-indicator.recording {
-            color: #e53e3e;
-            font-weight: 600;
-        }
-        
-        .mic-icon::before {
-            content: "🎤";
-        }
-        
-        .panel-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            margin-top: 16px;
-        }
-        
-        .action-button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            min-width: 80px;
-        }
-        
-        .copy-button {
-            background: #3182ce;
-            color: white;
-        }
-        
-        .copy-button:hover {
-            background: #2c5aa0;
-            transform: translateY(-1px);
-        }
-        
-        .copy-button:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .clear-button {
-            background: #e53e3e;
-            color: white;
-        }
-        
-        .clear-button:hover {
-            background: #c53030;
-            transform: translateY(-1px);
-        }
-        
-        .clear-button:disabled {
-            background: #a0aec0;
-            cursor: not-allowed;
-            transform: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <button id="micButton" class="mic-button off" onclick="toggleRecording()">
-            <span class="mic-icon"></span>
-        </button>
-        
-        <div class="transcription-panel">
-            <div class="panel-header">Transcription</div>
-            <div id="transcriptionText" class="transcription-text"></div>
-            <div id="statusIndicator" class="status-indicator">Click the microphone to start recording</div>
-            <div class="panel-actions">
-                <button id="copyButton" class="action-button copy-button" onclick="copyTranscription()" disabled>
-                    Copy
-                </button>
-                <button id="clearButton" class="action-button clear-button" onclick="clearTranscriptionManually()" disabled>
-                    Clear
-                </button>
-            </div>
-        </div>
-    </div>
-    
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        const { ipcRenderer } = require('electron');
-        let isRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        
-        function toggleRecording() {
-            if (isRecording) {
-                stopRecording();
-            } else {
-                startRecording();
-            }
-        }
-        
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
-                };
-                
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    sendAudioForTranscription(audioBlob);
-                };
-                
-                mediaRecorder.start();
-                isRecording = true;
-                updateUI();
-                clearTranscription();
-                
-            } catch (error) {
-                console.error('Error starting recording:', error);
-                updateStatus('Error: Could not access microphone');
-            }
-        }
-        
-        function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                isRecording = false;
-                updateUI();
-            }
-        }
-        
-        function updateUI() {
-            const button = document.getElementById('micButton');
-            if (isRecording) {
-                button.classList.remove('off');
-                button.classList.add('on');
-                updateStatus('Recording... Click to stop');
-            } else {
-                button.classList.remove('on');
-                button.classList.add('off');
-                updateStatus('Processing audio...');
-            }
-        }
-        
-        function updateStatus(message) {
-            const indicator = document.getElementById('statusIndicator');
-            indicator.textContent = message;
-            indicator.classList.toggle('recording', isRecording);
-        }
-        
-        function clearTranscription() {
-            document.getElementById('transcriptionText').textContent = '';
-            updateButtonStates();
-        }
-        
-        function updateTranscription(text) {
-            document.getElementById('transcriptionText').textContent = text;
-            updateStatus('Transcription complete');
-            updateButtonStates();
-        }
-        
-        function copyTranscription() {
-            const text = document.getElementById('transcriptionText').textContent;
-            if (text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    updateStatus('Text copied to clipboard');
-                    setTimeout(() => {
-                        updateStatus('Transcription complete');
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy text:', err);
-                    updateStatus('Failed to copy text');
-                });
-            }
-        }
-        
-        function clearTranscriptionManually() {
-            document.getElementById('transcriptionText').textContent = '';
-            updateStatus('Transcription cleared');
-            updateButtonStates();
-        }
-        
-        function updateButtonStates() {
-            const text = document.getElementById('transcriptionText').textContent;
-            const hasText = text.trim().length > 0;
-            
-            document.getElementById('copyButton').disabled = !hasText;
-            document.getElementById('clearButton').disabled = !hasText;
-        }
-        
-        function sendAudioForTranscription(audioBlob) {
-            const reader = new FileReader();
-            reader.onload = function() {
-                const arrayBuffer = reader.result;
-                ipcRenderer.send('transcribe-audio', arrayBuffer);
-            };
-            reader.readAsArrayBuffer(audioBlob);
-        }
-        
-        // Listen for transcription results
-        ipcRenderer.on('transcription-result', (event, result) => {
-            if (result.success) {
-                updateTranscription(result.text);
-            } else {
-                updateStatus(`Error: ${result.error}`);
-            }
+      const { ipcRenderer } = require("electron");
+      let isRecording = false;
+      let mediaRecorder = null;
+      let audioChunks = [];
+
+      // Double-tap detection variables
+      let lastBackslashTime = 0;
+      const doubleTapDelay = 500; // 500ms window for double-tap detection
+
+      // Audio feedback
+      const micOnSound = new Audio("./sounds/mic-on.wav");
+
+      // Navigation
+      window.showPage = function (pageId) {
+        // Hide all pages
+        const allPages = document.querySelectorAll(".page");
+        allPages.forEach((page) => {
+          page.classList.remove("flex");
+          page.classList.add("hidden");
         });
+
+        // Remove active classes from all nav items
+        document.querySelectorAll(".nav-item").forEach((nav) => {
+          nav.classList.remove("bg-blue-500");
+          nav.classList.add("hover:bg-gray-100");
+          const svg = nav.querySelector("svg");
+          if (svg) {
+            svg.classList.remove("fill-white");
+            svg.classList.add("fill-gray-600");
+          }
+        });
+
+        // Show selected page
+        const targetPage = document.getElementById(pageId);
+        if (targetPage) {
+          targetPage.classList.remove("hidden");
+          targetPage.classList.add("flex");
+        }
+
+        // Update active nav item
+        const searchKey = pageId.replace("Page", "");
+        const activeNav = document.querySelector(`[data-page="${searchKey}"]`);
+        if (activeNav) {
+          activeNav.classList.remove("hover:bg-gray-100");
+          activeNav.classList.add("bg-blue-500");
+          const svg = activeNav.querySelector("svg");
+          if (svg) {
+            svg.classList.remove("fill-gray-600");
+            svg.classList.add("fill-white");
+          }
+        }
+      };
+
+      window.showSettingsPage = function () {
+        showPage("settingsPage");
+        loadSettings();
+        loadModes();
+      };
+
+      window.showAddModePage = function () {
+        showPage("addModePage");
+        // Clear form
+        document.getElementById("modeName").value = "";
+        document.getElementById("systemPrompt").value = "";
+      };
+
+      window.showRecordPage = function () {
+        showPage("recordPage");
+        updateActiveModeIndicator();
+      };
+
+      function updateActiveModeIndicator() {
+        const activeMode = getActiveMode();
+        const indicator = document.getElementById("activeModeIndicator");
         
-        // Initialize UI
-        updateStatus('Click the microphone to start recording');
+        if (activeMode) {
+          indicator.innerHTML = `
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-green-500"></div>
+              <span class="text-gray-600">Mode:</span>
+              <span class="font-medium text-gray-800">${activeMode.name}</span>
+            </div>
+          `;
+        } else {
+          indicator.innerHTML = `
+            <div class="flex items-center gap-2 text-gray-500">
+              <div class="w-2 h-2 rounded-full bg-gray-300"></div>
+              <span>No active mode</span>
+            </div>
+          `;
+        }
+      }
+
+      // Navigation event listeners will be set up in main DOMContentLoaded
+
+      // LocalStorage Management
+      function saveSettings() {
+        const apiKey = document.getElementById("apiKey").value;
+        if (apiKey) {
+          localStorage.setItem("openai_api_key", apiKey);
+        }
+      }
+
+      function loadSettings() {
+        const apiKey = localStorage.getItem("openai_api_key");
+        if (apiKey) {
+          document.getElementById("apiKey").value = apiKey;
+        }
+      }
+
+      function getModes() {
+        const modes = localStorage.getItem("transcription_modes");
+        return modes ? JSON.parse(modes) : [];
+      }
+
+      function saveModes(modes) {
+        localStorage.setItem("transcription_modes", JSON.stringify(modes));
+      }
+
+      function getActiveMode() {
+        const activeModeId = localStorage.getItem("active_mode_id");
+        const modes = getModes();
+        return modes.find((mode) => mode.id === activeModeId) || null;
+      }
+
+      window.setActiveMode = function (modeId) {
+        localStorage.setItem("active_mode_id", modeId);
+        loadModes(); // Refresh the UI
+      };
+
+      window.saveMode = function () {
+        const name = document.getElementById("modeName").value.trim();
+        const prompt = document.getElementById("systemPrompt").value.trim();
+
+        if (!name || !prompt) {
+          alert("Please fill in both mode name and system prompt.");
+          return;
+        }
+
+        const modes = getModes();
+        const newMode = {
+          id: Date.now().toString(),
+          name: name,
+          prompt: prompt,
+          createdAt: new Date().toISOString(),
+        };
+
+        modes.push(newMode);
+        saveModes(modes);
+
+        // If this is the first mode, make it active
+        if (modes.length === 1) {
+          setActiveMode(newMode.id);
+        }
+
+        showSettingsPage();
+      };
+
+      window.deleteMode = function (modeId) {
+        const modes = getModes();
+
+        if (confirm("Are you sure you want to delete this mode?")) {
+          const filteredModes = modes.filter((mode) => mode.id !== modeId);
+          saveModes(filteredModes);
+
+          // If deleted mode was active, clear active mode
+          if (localStorage.getItem("active_mode_id") === modeId) {
+            localStorage.removeItem("active_mode_id");
+          }
+
+          loadModes();
+        }
+      };
+
+      let editingModeId = null;
+
+      window.editMode = function (modeId) {
+        const modes = getModes();
+        const mode = modes.find((m) => m.id === modeId);
+        
+        if (mode) {
+          editingModeId = modeId;
+          document.getElementById("editModeName").value = mode.name;
+          document.getElementById("editSystemPrompt").value = mode.prompt;
+          showPage("editModePage");
+        }
+      };
+
+      window.updateMode = function () {
+        if (!editingModeId) return;
+
+        const name = document.getElementById("editModeName").value.trim();
+        const prompt = document.getElementById("editSystemPrompt").value.trim();
+
+        if (!name || !prompt) {
+          alert("Please fill in both mode name and system prompt.");
+          return;
+        }
+
+        const modes = getModes();
+        const modeIndex = modes.findIndex((m) => m.id === editingModeId);
+
+        if (modeIndex !== -1) {
+          modes[modeIndex].name = name;
+          modes[modeIndex].prompt = prompt;
+          modes[modeIndex].updatedAt = new Date().toISOString();
+          saveModes(modes);
+          editingModeId = null;
+          showSettingsPage();
+        }
+      };
+
+      function loadModes() {
+        const modes = getModes();
+        const activeMode = getActiveMode();
+        const modeList = document.getElementById("modeList");
+
+        if (modes.length === 0) {
+          modeList.innerHTML = '<p class="text-gray-500 text-center py-5">No modes created yet. Click "Add Mode" to create your first custom mode.</p>';
+          return;
+        }
+
+        modeList.innerHTML = modes
+          .map(
+            (mode) => `
+          <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg mb-3 bg-white min-h-16">
+            <div class="flex items-center gap-3 flex-1">
+              <div class="w-2 h-2 rounded-full ${activeMode && activeMode.id === mode.id ? "bg-green-500" : "bg-gray-300"} flex-shrink-0"></div>
+              <div class="font-medium text-gray-800 flex-1">${mode.name}</div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              ${
+                activeMode && activeMode.id === mode.id
+                  ? '<span class="text-green-500 text-xs font-medium px-2 py-1 bg-green-50 rounded">ACTIVE</span>'
+                  : `<button class="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="setActiveMode('${mode.id}')">Activate</button>`
+              }
+              <button class="px-3 py-1 bg-blue-50 text-blue-600 rounded text-sm font-medium transition-colors duration-200 hover:bg-blue-100" onclick="editMode('${mode.id}')">Edit</button>
+              <button class="px-3 py-1 bg-red-50 text-red-600 rounded text-sm font-medium transition-colors duration-200 hover:bg-red-100" onclick="deleteMode('${mode.id}')">Delete</button>
+            </div>
+          </div>
+        `
+          )
+          .join("");
+      }
+
+      // Recording Functions
+      window.toggleRecording = function () {
+        if (isRecording) {
+          stopRecording();
+        } else {
+          startRecording();
+        }
+      };
+
+      async function startRecording() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+            sendAudioForTranscription(audioBlob);
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          updateRecordButton();
+          clearTranscription();
+          updateActiveModeIndicator(); // Update mode indicator when recording starts
+
+          // Play mic activation sound
+          micOnSound.play().catch((e) => console.log("Could not play sound:", e));
+        } catch (error) {
+          console.error("Error starting recording:", error);
+          alert("Error: Could not access microphone");
+        }
+      }
+
+      function stopRecording() {
+        if (mediaRecorder && isRecording) {
+          // Play mic deactivation sound immediately when stopping
+          micOnSound.play().catch((e) => console.log("Could not play deactivate sound:", e));
+          mediaRecorder.stop();
+          mediaRecorder.stream.getTracks().forEach((track) => track.stop());
+          isRecording = false;
+          updateRecordButton();
+        }
+      }
+
+      function updateRecordButton() {
+        const button = document.getElementById("micButton");
+        const icon = document.getElementById("micIcon");
+
+        if (isRecording) {
+          button.classList.remove("bg-gray-600", "hover:bg-red-500", "hover:scale-105");
+          button.classList.add("bg-red-500", "recording");
+          // Change to mic-off icon when recording
+          icon.innerHTML =
+            '<path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/>';
+        } else {
+          button.classList.remove("bg-red-500", "recording");
+          button.classList.add("bg-gray-600", "hover:bg-red-500", "hover:scale-105");
+          // Change back to mic-on icon when not recording
+          icon.innerHTML = '<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.93V21h2v-3.07c3.39-.5 6-3.4 6-6.93h-2z"/>';
+        }
+      }
+
+      function clearTranscription() {
+        document.getElementById("transcriptionText").value = "";
         updateButtonStates();
+      }
+
+      function updateTranscription(text) {
+        document.getElementById("transcriptionText").value = text;
+        updateButtonStates();
+      }
+
+      window.copyTranscription = function () {
+        const text = document.getElementById("transcriptionText").value;
+        if (text) {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => {
+              // Show brief feedback
+              const button = document.getElementById("copyButton");
+              const originalSvg = button.innerHTML;
+              button.innerHTML = '<svg viewBox="0 0 24 24" class="w-4 h-4 fill-green-500"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+              setTimeout(() => {
+                button.innerHTML = originalSvg;
+              }, 1000);
+            })
+            .catch((err) => {
+              console.error("Failed to copy text:", err);
+            });
+        }
+      };
+
+      window.clearTranscriptionManually = function () {
+        document.getElementById("transcriptionText").value = "";
+        updateButtonStates();
+      };
+
+      function updateButtonStates() {
+        const text = document.getElementById("transcriptionText").value;
+        const hasText = text.trim().length > 0;
+
+        document.getElementById("copyButton").disabled = !hasText;
+        document.getElementById("clearButton").disabled = !hasText;
+      }
+
+      function sendAudioForTranscription(audioBlob) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const arrayBuffer = reader.result;
+          const apiKey = localStorage.getItem("openai_api_key");
+          const activeMode = getActiveMode();
+          const prompt = activeMode ? activeMode.prompt : "";
+          ipcRenderer.send("transcribe-audio", { audioBuffer: arrayBuffer, apiKey: apiKey, prompt: prompt });
+        };
+        reader.readAsArrayBuffer(audioBlob);
+      }
+
+      // Listen for transcription results
+      ipcRenderer.on("transcription-result", (event, result) => {
+        if (result.success) {
+          updateTranscription(result.text);
+        } else {
+          alert(`Error: ${result.error}`);
+        }
+      });
+
+      // Listen for global backslash double-tap from main process
+      ipcRenderer.on("backslash-double-tap", () => {
+        const recordPage = document.getElementById("recordPage");
+        if (recordPage && !recordPage.classList.contains("hidden")) {
+          toggleRecording();
+        }
+      });
+
+      // Listen for play-mic-sound message from main process
+      ipcRenderer.on("play-mic-sound", () => {
+        micOnSound.play().catch((e) => console.log("Could not play paste sound:", e));
+      });
+
+      // Listen for test shortcut to verify IPC communication
+      ipcRenderer.on("test-shortcut", () => {
+        console.log("Test shortcut received - IPC communication working");
+      });
+
+      // Listen for global backslash double-tap
+      ipcRenderer.on("toggle-recording-global", () => {
+        toggleRecording();
+      });
+
+      // Keyboard event handler for backslash double-tap
+      function handleKeyDown(event) {
+        if (event.key === "\\" || event.key === "Backslash" || event.code === "Backslash") {
+          const currentTime = Date.now();
+          const timeDiff = currentTime - lastBackslashTime;
+
+          if (timeDiff < doubleTapDelay && lastBackslashTime > 0) {
+            // Double-tap detected
+            event.preventDefault();
+            const recordPage = document.getElementById("recordPage");
+
+            if (recordPage && !recordPage.classList.contains("hidden")) {
+              toggleRecording();
+            }
+            lastBackslashTime = 0; // Reset to prevent triple-tap issues
+          } else {
+            lastBackslashTime = currentTime;
+          }
+        }
+      }
+
+      // Auto-save settings function will be set up in main DOMContentLoaded
+
+      // Initialize UI - Single DOMContentLoaded handler
+      document.addEventListener("DOMContentLoaded", () => {
+
+        // Navigation is now handled by onclick attributes
+
+        // Set up API key auto-save
+        const apiKeyInput = document.getElementById("apiKey");
+        if (apiKeyInput) {
+          apiKeyInput.addEventListener("blur", () => {
+            saveSettings();
+          });
+        }
+
+        // Set up keyboard event listener
+        document.addEventListener("keydown", handleKeyDown);
+
+        // Show record page by default and ensure proper state
+        showRecordPage();
+        updateButtonStates();
+        loadSettings();
+      });
     </script>
-</body>
+    <style>
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+      }
+
+      .recording {
+        animation: pulse 2s infinite;
+      }
+
+      .nav-item svg {
+        transition: fill 0.2s ease;
+      }
+
+      .nav-item {
+        position: relative;
+        z-index: 10;
+      }
+
+      .nav-item:hover {
+        background: #f0f0f0 !important;
+        transform: scale(1.1);
+      }
+
+      .nav-item.bg-blue-500:hover svg {
+        fill: #4b5563 !important; /* gray-600 */
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 h-screen overflow-hidden font-sans">
+    <div class="flex w-full h-screen">
+      <!-- Sidebar -->
+      <div class="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-5">
+        <div class="nav-item w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer mb-3 transition-all duration-200 bg-blue-500" data-page="record" onclick="showRecordPage()">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white pointer-events-none">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.93V21h2v-3.07c3.39-.5 6-3.4 6-6.93h-2z" />
+          </svg>
+        </div>
+
+        <div class="nav-item w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer mb-3 transition-all duration-200 hover:bg-gray-100" data-page="settings" onclick="showSettingsPage()">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-gray-600 pointer-events-none">
+            <path
+              d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col h-screen">
+        <!-- Record Page -->
+        <div class="page flex flex-col h-full p-5" id="recordPage">
+          <div class="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col mb-5">
+            <!-- Header with action buttons -->
+            <div class="flex justify-between items-center p-4 border-b border-gray-200">
+              <!-- Active mode indicator -->
+              <div id="activeModeIndicator" class="flex items-center gap-2 text-sm">
+                <!-- Will be populated by JavaScript -->
+              </div>
+              <div class="flex gap-2">
+              <button
+                id="clearButton"
+                class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="clearTranscriptionManually()"
+                disabled
+              >
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+              <button id="copyButton" class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" onclick="copyTranscription()" disabled>
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                </svg>
+              </button>
+              </div>
+            </div>
+            <!-- Text area -->
+            <textarea id="transcriptionText" class="flex-1 border-0 outline-none p-5 text-base leading-relaxed text-gray-800 resize-none placeholder-gray-400" placeholder="Your transcribed text will appear here..." readonly></textarea>
+          </div>
+          <!-- Record button and debug info -->
+          <div class="flex justify-between items-center">
+            <div class="text-xs text-gray-500">
+              <div>Shortcut: Press \\ twice</div>
+            </div>
+            <button id="micButton" class="w-16 h-16 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all duration-300 shadow-lg bg-gray-600 hover:bg-red-500 hover:scale-105" onclick="toggleRecording()">
+              <svg id="micIcon" viewBox="0 0 24 24" class="w-6 h-6 fill-white">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.93V21h2v-3.07c3.39-.5 6-3.4 6-6.93h-2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div class="page hidden flex-col h-full p-5" id="settingsPage">
+          <div class="max-w-2xl mx-auto w-full">
+            <!-- OpenAI Configuration -->
+            <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+              <div class="p-5 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-800">OpenAI Configuration</h2>
+              </div>
+              <div class="p-5">
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="apiKey">API Key</label>
+                  <input
+                    type="password"
+                    id="apiKey"
+                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="Enter your OpenAI API key"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Modes Section -->
+            <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+              <div class="p-5 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                  <h2 class="text-lg font-semibold text-gray-800">Modes</h2>
+                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="showAddModePage()">Add Mode</button>
+                </div>
+              </div>
+              <div class="p-5">
+                <div id="modeList">
+                  <!-- Modes will be populated here -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Mode Page -->
+        <div class="page hidden flex-col h-full p-5" id="addModePage">
+          <div class="max-w-2xl mx-auto w-full">
+            <!-- Header -->
+            <div class="flex items-center mb-5">
+              <button class="p-2 mr-3 rounded-md transition-colors duration-200 hover:bg-gray-100" onclick="showSettingsPage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" class="fill-gray-600">
+                  <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                </svg>
+              </button>
+              <h1 class="text-2xl font-semibold text-gray-800">Add New Mode</h1>
+            </div>
+
+            <!-- Form -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div class="p-5">
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="modeName">Mode Name</label>
+                  <input
+                    type="text"
+                    id="modeName"
+                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="Enter mode name"
+                  />
+                </div>
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="systemPrompt">System Prompt</label>
+                  <textarea
+                    id="systemPrompt"
+                    class="w-full min-h-32 p-3 border border-gray-300 rounded-lg text-sm outline-none resize-y leading-tight transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="e.g., 'Transcribe this technical discussion about AI' or 'Medical terminology: MRI, CT scan, ECG'"
+                  ></textarea>
+                  <p class="mt-1 text-xs text-gray-500">Provide context or specific vocabulary to improve transcription accuracy</p>
+                </div>
+                <div class="flex justify-end gap-3 mt-5">
+                  <button class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="showSettingsPage()">Cancel</button>
+                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="saveMode()">Save Mode</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Mode Page -->
+        <div class="page hidden flex-col h-full p-5" id="editModePage">
+          <div class="max-w-2xl mx-auto w-full">
+            <!-- Header -->
+            <div class="flex items-center mb-5">
+              <button class="p-2 mr-3 rounded-md transition-colors duration-200 hover:bg-gray-100" onclick="showSettingsPage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" class="fill-gray-600">
+                  <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                </svg>
+              </button>
+              <h1 class="text-2xl font-semibold text-gray-800">Edit Mode</h1>
+            </div>
+
+            <!-- Form -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div class="p-5">
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="editModeName">Mode Name</label>
+                  <input
+                    type="text"
+                    id="editModeName"
+                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="Enter mode name"
+                  />
+                </div>
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="editSystemPrompt">System Prompt</label>
+                  <textarea
+                    id="editSystemPrompt"
+                    class="w-full min-h-32 p-3 border border-gray-300 rounded-lg text-sm outline-none resize-y leading-tight transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="e.g., 'Transcribe this technical discussion about AI' or 'Medical terminology: MRI, CT scan, ECG'"
+                  ></textarea>
+                  <p class="mt-1 text-xs text-gray-500">Provide context or specific vocabulary to improve transcription accuracy</p>
+                </div>
+                <div class="flex justify-end gap-3 mt-5">
+                  <button class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="showSettingsPage()">Cancel</button>
+                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="updateMode()">Update Mode</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>

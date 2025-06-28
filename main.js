@@ -81,7 +81,7 @@ function createTray() {
 
 function updateTrayMenu() {
   if (!tray) return;
-  
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "Voice Transcription - Running",
@@ -131,7 +131,7 @@ function setupIPC() {
   // Handle shortcut updates from renderer
   ipcMain.on("update-global-shortcut", (event, shortcut) => {
     registerRecordingShortcut(shortcut);
-    
+
     // Update tray display
     currentShortcutDisplay = shortcut.display || "Custom shortcut";
     updateTrayMenu();
@@ -158,7 +158,7 @@ function setupIPC() {
       // Save audio buffer to temporary file in the system temp directory
       const tempFilePath = path.join(
         app.getPath("temp"),
-        "whisper_temp_audio.webm",
+        "temp_audio.webm",
       );
       fs.writeFileSync(tempFilePath, Buffer.from(audioBuffer));
 
@@ -225,7 +225,7 @@ function setupIPC() {
       // Clean up temporary file if it exists
       const tempFilePath = path.join(
         app.getPath("temp"),
-        "whisper_temp_audio.webm",
+        "temp_audio.webm",
       );
       if (fs.existsSync(tempFilePath)) {
         fs.unlinkSync(tempFilePath);
@@ -233,7 +233,7 @@ function setupIPC() {
 
       // Extract more detailed error information
       let errorMessage = error.message || "Failed to transcribe audio";
-      
+
       // Check for specific OpenAI API errors
       if (error.status === 400) {
         if (error.code === 'invalid_value' && error.param === 'file') {
@@ -276,7 +276,7 @@ function setupGlobalShortcuts() {
   });
 
   // Register default recording shortcut
-  registerRecordingShortcut({ 
+  registerRecordingShortcut({
     mode: "double-tap",
     key: "\\",
     code: "Backslash",
@@ -296,7 +296,7 @@ function unregisterRecordingShortcut() {
     clearInterval(holdCheckInterval);
     holdCheckInterval = null;
   }
-  
+
   if (currentRecordingShortcut) {
     try {
       globalShortcut.unregister(currentRecordingShortcut);
@@ -318,7 +318,7 @@ function registerRecordingShortcut(shortcut) {
 
   try {
     const mode = shortcut.mode || 'toggle';
-    
+
     if (mode === 'hold') {
       // For hold-to-record, global shortcuts work as toggle since we can't detect key release
       // When app is focused, the renderer process will handle hold detection
@@ -329,7 +329,7 @@ function registerRecordingShortcut(shortcut) {
           mainWindow.webContents.send("toggle-recording");
         }
       });
-      
+
       if (registered) {
         currentRecordingShortcut = accelerator;
         console.log("Registered hold-to-record shortcut:", accelerator);
@@ -351,7 +351,7 @@ function registerRecordingShortcut(shortcut) {
           lastShortcutTime = currentTime;
         }
       });
-      
+
       if (registered) {
         currentRecordingShortcut = accelerator;
         console.log("Registered double-tap shortcut:", accelerator);
@@ -363,7 +363,7 @@ function registerRecordingShortcut(shortcut) {
           mainWindow.webContents.send("toggle-recording");
         }
       });
-      
+
       if (registered) {
         currentRecordingShortcut = accelerator;
         console.log("Registered toggle shortcut:", accelerator);
@@ -376,7 +376,7 @@ function registerRecordingShortcut(shortcut) {
 
 function buildAccelerator(shortcut) {
   const parts = [];
-  
+
   // Check if this is a single modifier key
   if (shortcut.allowSingleModifier) {
     // Handle single modifier keys
@@ -385,16 +385,16 @@ function buildAccelerator(shortcut) {
     if (shortcut.key === "Alt" || shortcut.key === "Option") return "Alt";
     if (shortcut.key === "Shift") return "Shift";
   }
-  
+
   // Add modifiers
   if (shortcut.ctrl) parts.push("Ctrl");
   if (shortcut.cmd) parts.push("Cmd");
   if (shortcut.alt) parts.push("Alt");
   if (shortcut.shift) parts.push("Shift");
-  
+
   // Add the key
   let key = shortcut.key;
-  
+
   // Handle special keys
   if (key === " ") key = "Space";
   else if (key === "ArrowUp") key = "Up";
@@ -407,12 +407,12 @@ function buildAccelerator(shortcut) {
   else if (key === "Backspace") key = "Backspace";
   else if (key === "Delete") key = "Delete";
   else if (key.length === 1) key = key.toUpperCase();
-  
+
   // Don't add modifier keys as the main key
   if (!["Control", "Meta", "Command", "Alt", "Option", "Shift"].includes(shortcut.key)) {
     parts.push(key);
   }
-  
+
   return parts.join("+");
 }
 

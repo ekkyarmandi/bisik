@@ -1,6 +1,6 @@
 <p align="center">
-  <h1>Whisper</h1>
-  <p>Whisper is a transcription app built with Electron.js while also utilizing OpenAI Whisper API</p>
+  <h1>Bisik</h1>
+  <p>Bisik is a speech recognation app built with Electron.js and utilizing OpenAI Whisper API</p>
 </p>
 
 <div align="center">

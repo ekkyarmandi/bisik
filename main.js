@@ -218,6 +218,10 @@ function setupIPC() {
   });
 }
 
+// Double-tap detection for backslash
+let lastBackslashTime = 0;
+const doubleTapDelay = 500; // 500ms window for double-tap
+
 function setupGlobalShortcuts() {
   globalShortcut.register("CommandOrControl+Shift+H", () => {
     if (mainWindow) {
@@ -229,6 +233,23 @@ function setupGlobalShortcuts() {
   globalShortcut.register("CommandOrControl+Shift+T", () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("test-shortcut");
+    }
+  });
+
+  // Global backslash shortcut with double-tap detection
+  globalShortcut.register("\\", () => {
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastBackslashTime;
+
+    if (timeDiff < doubleTapDelay && lastBackslashTime > 0) {
+      // Double-tap detected
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        // Send message to trigger recording (window stays in its current state)
+        mainWindow.webContents.send("backslash-double-tap");
+      }
+      lastBackslashTime = 0; // Reset to prevent triple-tap issues
+    } else {
+      lastBackslashTime = currentTime;
     }
   });
 

@@ -321,21 +321,19 @@ function registerRecordingShortcut(shortcut) {
     
     if (mode === 'hold') {
       // For hold-to-record, global shortcuts work as toggle since we can't detect key release
-      // The in-app hold-to-record will work properly with keyup/keydown events
+      // When app is focused, the renderer process will handle hold detection
       const registered = globalShortcut.register(accelerator, () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-          // When app is not focused, work as toggle
-          // When app is focused, the renderer's keydown/keyup handlers will take over
-          if (!mainWindow.isFocused()) {
-            mainWindow.webContents.send("toggle-recording");
-          }
+          // Always send toggle-recording for global shortcuts
+          // The renderer will handle the hold logic when focused
+          mainWindow.webContents.send("toggle-recording");
         }
       });
       
       if (registered) {
         currentRecordingShortcut = accelerator;
         console.log("Registered hold-to-record shortcut:", accelerator);
-        console.log("Note: Hold-to-record works when app is focused. When minimized, it works as toggle.");
+        console.log("Note: Hold-to-record works properly when app is focused. When minimized, it works as toggle.");
       }
     } else if (mode === 'double-tap') {
       // Handle double-tap logic

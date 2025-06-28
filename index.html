@@ -11,6 +11,44 @@
       let mediaRecorder = null;
       let audioChunks = [];
 
+      // Toast notification system
+      function showToast(type, title, message, duration = 5000) {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        // Icons for different toast types
+        const icons = {
+          error: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
+          success: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
+          info: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>'
+        };
+        
+        toast.innerHTML = `
+          <div class="toast-icon">${icons[type] || icons.info}</div>
+          <div class="toast-content">
+            <div class="toast-title">${title}</div>
+            ${message ? `<div class="toast-message">${message}</div>` : ''}
+          </div>
+          <button class="toast-close" onclick="this.parentElement.remove()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => toast.classList.add('show'), 10);
+        
+        // Auto-remove after duration
+        setTimeout(() => {
+          toast.classList.remove('show');
+          setTimeout(() => toast.remove(), 300);
+        }, duration);
+      }
+
       // Double-tap detection variables
       let lastBackslashTime = 0;
       const doubleTapDelay = 500; // 500ms window for double-tap detection
@@ -114,6 +152,215 @@
         if (apiKey) {
           document.getElementById("apiKey").value = apiKey;
         }
+        loadShortcutSettings();
+      }
+
+      // Shortcut Management
+      let isCapturingShortcut = false;
+      let capturedKeys = [];
+      let currentKeys = new Set();
+      const DEFAULT_SHORTCUT = { 
+        mode: "double-tap",
+        key: "\\", 
+        code: "Backslash",
+        doubleTap: true, 
+        display: "Double-tap \\",
+        allowSingleModifier: false
+      };
+
+      function getCustomShortcut() {
+        const saved = localStorage.getItem("custom_shortcut");
+        return saved ? JSON.parse(saved) : DEFAULT_SHORTCUT;
+      }
+
+      function saveCustomShortcut(shortcut) {
+        localStorage.setItem("custom_shortcut", JSON.stringify(shortcut));
+        // Notify main process to update global shortcut
+        ipcRenderer.send("update-global-shortcut", shortcut);
+      }
+
+      // Recording Mode Management
+      window.setRecordingMode = function(mode) {
+        const shortcut = getCustomShortcut();
+        shortcut.mode = mode;
+        shortcut.doubleTap = (mode === 'double-tap');
+        saveCustomShortcut(shortcut);
+        updateRecordingModeUI();
+      };
+
+      function updateRecordingModeUI() {
+        const shortcut = getCustomShortcut();
+        const mode = shortcut.mode || 'toggle';
+        
+        // Update button states
+        document.querySelectorAll('.recording-mode-btn').forEach(btn => {
+          btn.classList.remove('active');
+        });
+        
+        // Set active button
+        if (mode === 'toggle') {
+          document.getElementById('modeToggle').classList.add('active');
+          document.getElementById('modeDescription').textContent = 'Press once to start, press again to stop';
+        } else if (mode === 'hold') {
+          document.getElementById('modeHold').classList.add('active');
+          document.getElementById('modeDescription').textContent = 'Hold key down to record, release to stop (works best when app is focused)';
+        } else if (mode === 'double-tap') {
+          document.getElementById('modeDoubleTap').classList.add('active');
+          document.getElementById('modeDescription').textContent = 'Double-tap quickly to start/stop recording';
+        }
+      }
+
+      window.updateSingleModifierSetting = function() {
+        const checked = document.getElementById('allowSingleModifier').checked;
+        const shortcut = getCustomShortcut();
+        shortcut.allowSingleModifier = checked;
+        saveCustomShortcut(shortcut);
+      };
+
+      function loadShortcutSettings() {
+        const shortcut = getCustomShortcut();
+        const input = document.getElementById("recordShortcut");
+        if (input) {
+          input.value = shortcut.display;
+        }
+        
+        // Load recording mode
+        updateRecordingModeUI();
+        
+        // Load single modifier setting
+        const singleModCheckbox = document.getElementById("allowSingleModifier");
+        if (singleModCheckbox) {
+          singleModCheckbox.checked = shortcut.allowSingleModifier || false;
+        }
+      }
+
+      window.resetToDefaultShortcut = function() {
+        saveCustomShortcut(DEFAULT_SHORTCUT);
+        loadShortcutSettings();
+        updateShortcutInstructions();
+      };
+
+      function updateShortcutInstructions() {
+        const shortcut = getCustomShortcut();
+        const instructionElements = document.querySelectorAll('[data-shortcut-instruction]');
+        instructionElements.forEach(el => {
+          el.textContent = `Shortcut: ${shortcut.display}`;
+        });
+      }
+
+      function setupShortcutCapture() {
+        const input = document.getElementById("recordShortcut");
+        if (!input) return;
+
+        input.addEventListener("focus", () => {
+          isCapturingShortcut = true;
+          currentKeys.clear();
+          input.value = "Press keys...";
+          input.classList.add("bg-blue-50");
+        });
+
+        input.addEventListener("blur", () => {
+          // Don't immediately clear capture state, wait a bit
+          setTimeout(() => {
+            if (isCapturingShortcut) {
+              isCapturingShortcut = false;
+              input.classList.remove("bg-blue-50");
+              currentKeys.clear();
+              loadShortcutSettings();
+            }
+          }, 200);
+        });
+
+        let lastKeyEvent = null;
+        
+        input.addEventListener("keydown", (e) => {
+          if (!isCapturingShortcut) return;
+          
+          e.preventDefault();
+          e.stopPropagation();
+          
+          const key = e.key;
+          const code = e.code;
+          
+          // Handle Enter to save shortcut
+          if (key === "Enter" && lastKeyEvent) {
+            const existingShortcut = getCustomShortcut();
+            const shortcut = {
+              mode: existingShortcut.mode || 'toggle',
+              key: lastKeyEvent.key,
+              code: lastKeyEvent.code,
+              ctrl: lastKeyEvent.ctrlKey,
+              cmd: lastKeyEvent.metaKey,
+              alt: lastKeyEvent.altKey,
+              shift: lastKeyEvent.shiftKey,
+              doubleTap: existingShortcut.mode === 'double-tap',
+              display: input.value,
+              allowSingleModifier: existingShortcut.allowSingleModifier
+            };
+            
+            saveCustomShortcut(shortcut);
+            isCapturingShortcut = false;
+            input.classList.remove("bg-blue-50");
+            currentKeys.clear();
+            lastKeyEvent = null;
+            input.blur();
+            updateShortcutInstructions();
+            return;
+          }
+          
+          // Handle Escape to cancel
+          if (key === "Escape") {
+            isCapturingShortcut = false;
+            lastKeyEvent = null;
+            input.blur();
+            return;
+          }
+          
+          // Skip Enter and Escape for capture
+          if (key !== "Enter" && key !== "Escape") {
+            // Track current key
+            currentKeys.add({ key, code });
+            
+            // Store the last key event
+            lastKeyEvent = {
+              key: key,
+              code: code,
+              ctrlKey: e.ctrlKey,
+              metaKey: e.metaKey,
+              altKey: e.altKey,
+              shiftKey: e.shiftKey
+            };
+            
+            // Update display
+            input.value = formatShortcutDisplay(e);
+          }
+        });
+
+        input.addEventListener("keyup", (e) => {
+          if (!isCapturingShortcut) return;
+          
+          const key = e.key;
+          // Remove key from tracking when released
+          currentKeys.forEach(k => {
+            if (k.key === key) currentKeys.delete(k);
+          });
+        });
+      }
+
+      function formatShortcutDisplay(event) {
+        const parts = [];
+        if (event.ctrlKey || event.metaKey) parts.push(process.platform === "darwin" ? "Cmd" : "Ctrl");
+        if (event.altKey) parts.push("Alt");
+        if (event.shiftKey) parts.push("Shift");
+        
+        // Format the key nicely
+        let key = event.key;
+        if (key === " ") key = "Space";
+        else if (key === "\\") key = "\\";
+        else if (key.length === 1) key = key.toUpperCase();
+        
+        parts.push(key);
+        return parts.join("+");
       }
 
       function getModes() {
@@ -285,7 +532,19 @@
           micOnSound.play().catch((e) => console.log("Could not play sound:", e));
         } catch (error) {
           console.error("Error starting recording:", error);
-          alert("Error: Could not access microphone");
+          isRecording = false;
+          updateRecordButton();
+          
+          let errorMessage = "Could not access microphone";
+          if (error.name === 'NotAllowedError') {
+            errorMessage = "Microphone access denied. Please check your permissions.";
+          } else if (error.name === 'NotFoundError') {
+            errorMessage = "No microphone found. Please connect a microphone.";
+          } else if (error.name === 'NotReadableError') {
+            errorMessage = "Microphone is already in use by another application.";
+          }
+          
+          showToast('error', 'Microphone Error', errorMessage);
         }
       }
 
@@ -377,12 +636,58 @@
       ipcRenderer.on("transcription-result", (event, result) => {
         if (result.success) {
           updateTranscription(result.text);
+          showToast('success', 'Transcription Complete', 'Text copied to clipboard');
         } else {
-          alert(`Error: ${result.error}`);
+          // Parse error message for user-friendly display
+          let errorTitle = 'Transcription Error';
+          let errorMessage = result.error;
+          
+          if (result.error.includes('Audio file might be corrupted')) {
+            errorTitle = 'Audio Error';
+            errorMessage = 'The recording might be too short or corrupted. Try recording for at least 1 second.';
+          } else if (result.error.includes('API key')) {
+            errorTitle = 'API Key Error';
+            errorMessage = 'Please check your OpenAI API key in settings.';
+          } else if (result.error.includes('Could not access microphone')) {
+            errorTitle = 'Microphone Error';
+            errorMessage = 'Unable to access microphone. Please check permissions.';
+          } else if (result.error.includes('quota')) {
+            errorTitle = 'Quota Exceeded';
+            errorMessage = 'Your OpenAI API quota has been exceeded.';
+          } else if (result.error.includes('rate limit')) {
+            errorTitle = 'Rate Limited';
+            errorMessage = 'Too many requests. Please wait a moment and try again.';
+          }
+          
+          showToast('error', errorTitle, errorMessage, 7000);
+          console.error('Transcription error:', result.error);
         }
       });
 
-      // Listen for global backslash double-tap from main process
+      // Listen for recording control messages from main process
+      ipcRenderer.on("toggle-recording", () => {
+        const recordPage = document.getElementById("recordPage");
+        if (recordPage && !recordPage.classList.contains("hidden")) {
+          toggleRecording();
+        }
+      });
+
+      ipcRenderer.on("start-recording-hold", () => {
+        const recordPage = document.getElementById("recordPage");
+        if (recordPage && !recordPage.classList.contains("hidden") && !isRecording) {
+          startRecording();
+        }
+      });
+
+      ipcRenderer.on("stop-recording-hold", () => {
+        const recordPage = document.getElementById("recordPage");
+        if (recordPage && !recordPage.classList.contains("hidden") && isRecording) {
+          stopRecording();
+        }
+      });
+
+
+      // Legacy support for old message name
       ipcRenderer.on("backslash-double-tap", () => {
         const recordPage = document.getElementById("recordPage");
         if (recordPage && !recordPage.classList.contains("hidden")) {
@@ -400,28 +705,119 @@
         console.log("Test shortcut received - IPC communication working");
       });
 
-      // Listen for global backslash double-tap
-      ipcRenderer.on("toggle-recording-global", () => {
-        toggleRecording();
+      // Send saved shortcut to main process on request
+      ipcRenderer.on("request-saved-shortcut", () => {
+        const shortcut = getCustomShortcut();
+        ipcRenderer.send("update-global-shortcut", shortcut);
       });
 
-      // Keyboard event handler for backslash double-tap
+      // Keyboard event handler for custom shortcuts
+      let lastKeyTime = 0;
+      let isHoldingKey = false;
+      
       function handleKeyDown(event) {
-        if (event.key === "\\" || event.key === "Backslash" || event.code === "Backslash") {
-          const currentTime = Date.now();
-          const timeDiff = currentTime - lastBackslashTime;
-
-          if (timeDiff < doubleTapDelay && lastBackslashTime > 0) {
-            // Double-tap detected
-            event.preventDefault();
-            const recordPage = document.getElementById("recordPage");
-
-            if (recordPage && !recordPage.classList.contains("hidden")) {
-              toggleRecording();
+        // Don't trigger shortcuts while capturing a new shortcut
+        if (isCapturingShortcut) return;
+        
+        // Don't handle if window is not focused (let global shortcuts handle it)
+        if (!document.hasFocus()) return;
+        
+        const shortcut = getCustomShortcut();
+        const mode = shortcut.mode || 'toggle';
+        
+        // Check if the current key matches the custom shortcut
+        const keyMatches = (event.key === shortcut.key || event.code === shortcut.code);
+        const modifiersMatch = 
+          (!!event.ctrlKey === !!shortcut.ctrl) &&
+          (!!event.metaKey === !!shortcut.cmd) &&
+          (!!event.altKey === !!shortcut.alt) &&
+          (!!event.shiftKey === !!shortcut.shift);
+        
+        if (keyMatches && modifiersMatch) {
+          const recordPage = document.getElementById("recordPage");
+          if (!recordPage || recordPage.classList.contains("hidden")) return;
+          
+          event.preventDefault();
+          
+          if (mode === 'hold') {
+            // Hold-to-record mode - only start if not already holding
+            if (!isHoldingKey && !isRecording) {
+              console.log("Hold-to-record: Starting recording", { key: event.key, code: event.code });
+              isHoldingKey = true;
+              startRecording();
             }
-            lastBackslashTime = 0; // Reset to prevent triple-tap issues
+          } else if (mode === 'double-tap') {
+            // Double-tap mode
+            const currentTime = Date.now();
+            const timeDiff = currentTime - lastKeyTime;
+            
+            if (timeDiff < doubleTapDelay && lastKeyTime > 0) {
+              // Double-tap detected
+              toggleRecording();
+              lastKeyTime = 0; // Reset to prevent triple-tap issues
+            } else {
+              lastKeyTime = currentTime;
+            }
           } else {
-            lastBackslashTime = currentTime;
+            // Toggle mode (default)
+            toggleRecording();
+          }
+        }
+      }
+      
+      function handleKeyUp(event) {
+        if (isCapturingShortcut) return;
+        
+        // For hold mode, we need to detect key release even if window loses focus briefly
+        const shortcut = getCustomShortcut();
+        const mode = shortcut.mode || 'toggle';
+        
+        if (mode === 'hold' && isHoldingKey) {
+          // More lenient key matching for better reliability
+          const keyReleased = 
+            (event.key === shortcut.key) || 
+            (event.code === shortcut.code) ||
+            (event.key.toLowerCase() === shortcut.key.toLowerCase()) ||
+            // Handle special cases
+            (shortcut.key === '\\' && event.key === 'Backslash') ||
+            (shortcut.key === ' ' && event.key === 'Space');
+            
+          const modifierReleased = 
+            (shortcut.ctrl && !event.ctrlKey) ||
+            (shortcut.cmd && !event.metaKey) ||
+            (shortcut.alt && !event.altKey) ||
+            (shortcut.shift && !event.shiftKey);
+          
+          // Also check if a modifier key itself was released
+          const isModifierKey = ['Control', 'Meta', 'Alt', 'Shift', 'Command', 'Option'].includes(event.key);
+          const shouldStop = keyReleased || modifierReleased || 
+                           (isModifierKey && (
+                             (event.key === 'Control' && shortcut.ctrl) ||
+                             ((event.key === 'Meta' || event.key === 'Command') && shortcut.cmd) ||
+                             (event.key === 'Alt' && shortcut.alt) ||
+                             (event.key === 'Shift' && shortcut.shift)
+                           ));
+          
+          console.log("Hold-to-record: Key up detected", {
+            key: event.key,
+            code: event.code,
+            keyReleased,
+            modifierReleased,
+            isModifierKey,
+            shouldStop,
+            shortcut: shortcut,
+            isRecording,
+            isHoldingKey
+          });
+          
+          // Stop recording if any key from the combination is released
+          if (shouldStop) {
+            console.log("Hold-to-record: Stopping recording");
+            event.preventDefault();
+            isHoldingKey = false;
+            if (isRecording) {
+              stopRecording();
+            }
           }
         }
       }
@@ -441,13 +837,28 @@
           });
         }
 
-        // Set up keyboard event listener
+        // Set up keyboard event listeners
         document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
+
+        // Set up shortcut capture
+        setupShortcutCapture();
 
         // Show record page by default and ensure proper state
         showRecordPage();
         updateButtonStates();
         loadSettings();
+        updateShortcutInstructions();
+        
+        // Add window blur handler for hold-to-record failsafe
+        window.addEventListener('blur', () => {
+          const shortcut = getCustomShortcut();
+          if (shortcut.mode === 'hold' && isHoldingKey && isRecording) {
+            console.log("Window lost focus during hold-to-record, stopping recording");
+            isHoldingKey = false;
+            stopRecording();
+          }
+        });
       });
     </script>
     <style>
@@ -484,9 +895,90 @@
       .nav-item.bg-blue-500:hover svg {
         fill: #4b5563 !important; /* gray-600 */
       }
+
+      .recording-mode-btn.active {
+        background-color: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+      }
+      /* Toast notification styles */
+      .toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        min-width: 300px;
+        max-width: 400px;
+        padding: 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transform: translateX(120%);
+        transition: transform 0.3s ease-in-out;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        transform: translateX(0);
+      }
+
+      .toast.error {
+        background-color: #fee;
+        border: 1px solid #fcc;
+        color: #c00;
+      }
+
+      .toast.success {
+        background-color: #efe;
+        border: 1px solid #cfc;
+        color: #060;
+      }
+
+      .toast.info {
+        background-color: #e6f3ff;
+        border: 1px solid #b3d9ff;
+        color: #0066cc;
+      }
+
+      .toast-icon {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+      }
+
+      .toast-content {
+        flex: 1;
+      }
+
+      .toast-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .toast-message {
+        font-size: 14px;
+      }
+
+      .toast-close {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+      }
+
+      .toast-close:hover {
+        opacity: 1;
+      }
     </style>
   </head>
   <body class="bg-gray-50 h-screen overflow-hidden font-sans">
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
     <div class="flex w-full h-screen">
       <!-- Sidebar -->
       <div class="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-5">
@@ -541,7 +1033,7 @@
           <!-- Record button and debug info -->
           <div class="flex justify-between items-center">
             <div class="text-xs text-gray-500">
-              <div>Shortcut: Press \\ twice</div>
+              <div data-shortcut-instruction>Shortcut: Double-tap \\</div>
             </div>
             <button id="micButton" class="w-16 h-16 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all duration-300 shadow-lg bg-gray-600 hover:bg-red-500 hover:scale-105" onclick="toggleRecording()">
               <svg id="micIcon" viewBox="0 0 24 24" class="w-6 h-6 fill-white">
@@ -553,37 +1045,111 @@
         </div>
 
         <!-- Settings Page -->
-        <div class="page hidden flex-col h-full p-5" id="settingsPage">
-          <div class="max-w-2xl mx-auto w-full">
-            <!-- OpenAI Configuration -->
-            <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
-              <div class="p-5 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-800">OpenAI Configuration</h2>
-              </div>
-              <div class="p-5">
-                <div class="mb-5">
-                  <label class="block mb-2 text-sm font-medium text-gray-800" for="apiKey">API Key</label>
-                  <input
-                    type="password"
-                    id="apiKey"
-                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
-                    placeholder="Enter your OpenAI API key"
-                  />
+        <div class="page hidden flex-col h-full" id="settingsPage">
+          <div class="flex-1 overflow-y-auto p-5">
+            <div class="max-w-2xl mx-auto w-full">
+              <!-- OpenAI Configuration -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <h2 class="text-lg font-semibold text-gray-800">OpenAI Configuration</h2>
+                </div>
+                <div class="p-5">
+                  <div class="mb-5">
+                    <label class="block mb-2 text-sm font-medium text-gray-800" for="apiKey">API Key</label>
+                    <input
+                      type="password"
+                      id="apiKey"
+                      class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                      placeholder="Enter your OpenAI API key"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Modes Section -->
-            <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
-              <div class="p-5 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                  <h2 class="text-lg font-semibold text-gray-800">Modes</h2>
-                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="showAddModePage()">Add Mode</button>
+              <!-- Recording Shortcut Configuration -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <h2 class="text-lg font-semibold text-gray-800">Recording Shortcut</h2>
+                </div>
+                <div class="p-5">
+                  <!-- Recording Mode Selection -->
+                  <div class="mb-5">
+                    <label class="block mb-2 text-sm font-medium text-gray-800">Recording Mode</label>
+                    <div class="grid grid-cols-3 gap-3">
+                      <button
+                        id="modeToggle"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('toggle')"
+                      >
+                        Toggle
+                      </button>
+                      <button
+                        id="modeHold"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('hold')"
+                      >
+                        Hold to Record
+                      </button>
+                      <button
+                        id="modeDoubleTap"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('double-tap')"
+                      >
+                        Double-tap
+                      </button>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500" id="modeDescription">Press once to start, press again to stop</p>
+                  </div>
+                  
+                  <!-- Shortcut Input -->
+                  <div class="mb-4">
+                    <label class="block mb-2 text-sm font-medium text-gray-800" for="recordShortcut">Shortcut Keys</label>
+                    <div class="flex gap-3">
+                      <input
+                        type="text"
+                        id="recordShortcut"
+                        class="flex-1 p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                        placeholder="Click and press your shortcut"
+                        readonly
+                      />
+                      <button
+                        id="resetShortcut"
+                        class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200"
+                        onclick="resetToDefaultShortcut()"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Click the input field and press your desired key combination, then press Enter to save or Escape to cancel.</p>
+                  </div>
+                  
+                  <!-- Allow Single Modifier Option -->
+                  <div class="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="allowSingleModifier"
+                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      onchange="updateSingleModifierSetting()"
+                    />
+                    <label for="allowSingleModifier" class="ml-2 text-sm text-gray-700">
+                      Allow single modifier keys (Fn, Cmd, Alt)
+                    </label>
+                  </div>
                 </div>
               </div>
-              <div class="p-5">
-                <div id="modeList">
-                  <!-- Modes will be populated here -->
+
+              <!-- Modes Section -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-800">Modes</h2>
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="showAddModePage()">Add Mode</button>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div id="modeList">
+                    <!-- Modes will be populated here -->
+                  </div>
                 </div>
               </div>
             </div>

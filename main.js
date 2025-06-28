@@ -37,6 +37,11 @@ function createWindow() {
 
   mainWindow.loadFile("index.html");
 
+  // Request saved shortcut after window loads
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.send("request-saved-shortcut");
+  });
+
   mainWindow.on("minimize", (event) => {
     event.preventDefault();
     mainWindow.hide();
@@ -49,6 +54,8 @@ function createWindow() {
     }
   });
 }
+
+let currentShortcutDisplay = "Double-tap \\";
 
 function createTray() {
   // Use template images for automatic dark/light mode support
@@ -65,7 +72,16 @@ function createTray() {
   }
 
   tray = new Tray(trayIcon);
+  updateTrayMenu();
 
+  tray.on("click", () => {
+    mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+  });
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  
   const contextMenu = Menu.buildFromTemplate([
     {
       label: "Voice Transcription - Running",
@@ -81,7 +97,7 @@ function createTray() {
       },
     },
     {
-      label: "Shortcut: \\ x2",
+      label: `Shortcut: ${currentShortcutDisplay}`,
       enabled: false,
     },
     {
@@ -97,11 +113,7 @@ function createTray() {
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.setToolTip("Voice Transcription - Press \\ x2 to record");
-
-  tray.on("click", () => {
-    mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
-  });
+  tray.setToolTip(`Voice Transcription - Press ${currentShortcutDisplay} to record`);
 }
 
 function initializeOpenAI() {
@@ -116,6 +128,15 @@ function initializeOpenAI() {
 }
 
 function setupIPC() {
+  // Handle shortcut updates from renderer
+  ipcMain.on("update-global-shortcut", (event, shortcut) => {
+    registerRecordingShortcut(shortcut);
+    
+    // Update tray display
+    currentShortcutDisplay = shortcut.display || "Custom shortcut";
+    updateTrayMenu();
+  });
+
   ipcMain.on("transcribe-audio", async (event, data) => {
     try {
       const { audioBuffer, apiKey, prompt } = data;
@@ -218,9 +239,11 @@ function setupIPC() {
   });
 }
 
-// Double-tap detection for backslash
-let lastBackslashTime = 0;
+// Double-tap detection for shortcuts
+let lastShortcutTime = 0;
 const doubleTapDelay = 500; // 500ms window for double-tap
+let currentRecordingShortcut = null;
+let holdCheckInterval = null; // Store interval globally to clear it properly
 
 function setupGlobalShortcuts() {
   globalShortcut.register("CommandOrControl+Shift+H", () => {
@@ -236,26 +259,147 @@ function setupGlobalShortcuts() {
     }
   });
 
-  // Global backslash shortcut with double-tap detection
-  globalShortcut.register("\\", () => {
-    const currentTime = Date.now();
-    const timeDiff = currentTime - lastBackslashTime;
-
-    if (timeDiff < doubleTapDelay && lastBackslashTime > 0) {
-      // Double-tap detected
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Send message to trigger recording (window stays in its current state)
-        mainWindow.webContents.send("backslash-double-tap");
-      }
-      lastBackslashTime = 0; // Reset to prevent triple-tap issues
-    } else {
-      lastBackslashTime = currentTime;
-    }
+  // Register default recording shortcut
+  registerRecordingShortcut({ 
+    mode: "double-tap",
+    key: "\\",
+    code: "Backslash",
+    doubleTap: true,
+    display: "Double-tap \\",
+    allowSingleModifier: false
   });
 
   console.log(
-    "Main Process: Global shortcuts registered (Cmd+Shift+H to toggle, Cmd+Shift+T to test, \\ x2 to record)",
+    "Main Process: Global shortcuts registered (Cmd+Shift+H to toggle, Cmd+Shift+T to test)",
   );
+}
+
+function unregisterRecordingShortcut() {
+  // Clear any hold-to-record interval
+  if (holdCheckInterval) {
+    clearInterval(holdCheckInterval);
+    holdCheckInterval = null;
+  }
+  
+  if (currentRecordingShortcut) {
+    try {
+      globalShortcut.unregister(currentRecordingShortcut);
+      console.log("Unregistered shortcut:", currentRecordingShortcut);
+    } catch (e) {
+      console.error("Error unregistering shortcut:", e);
+    }
+    currentRecordingShortcut = null;
+  }
+}
+
+function registerRecordingShortcut(shortcut) {
+  // First unregister any existing recording shortcut
+  unregisterRecordingShortcut();
+
+  // Build the accelerator string
+  const accelerator = buildAccelerator(shortcut);
+  if (!accelerator) return;
+
+  try {
+    const mode = shortcut.mode || 'toggle';
+    
+    if (mode === 'hold') {
+      // For hold-to-record, global shortcuts work as toggle since we can't detect key release
+      // The in-app hold-to-record will work properly with keyup/keydown events
+      const registered = globalShortcut.register(accelerator, () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // When app is not focused, work as toggle
+          // When app is focused, the renderer's keydown/keyup handlers will take over
+          if (!mainWindow.isFocused()) {
+            mainWindow.webContents.send("toggle-recording");
+          }
+        }
+      });
+      
+      if (registered) {
+        currentRecordingShortcut = accelerator;
+        console.log("Registered hold-to-record shortcut:", accelerator);
+        console.log("Note: Hold-to-record works when app is focused. When minimized, it works as toggle.");
+      }
+    } else if (mode === 'double-tap') {
+      // Handle double-tap logic
+      const registered = globalShortcut.register(accelerator, () => {
+        const currentTime = Date.now();
+        const timeDiff = currentTime - lastShortcutTime;
+
+        if (timeDiff < doubleTapDelay && lastShortcutTime > 0) {
+          // Double-tap detected
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("toggle-recording");
+          }
+          lastShortcutTime = 0; // Reset to prevent triple-tap issues
+        } else {
+          lastShortcutTime = currentTime;
+        }
+      });
+      
+      if (registered) {
+        currentRecordingShortcut = accelerator;
+        console.log("Registered double-tap shortcut:", accelerator);
+      }
+    } else {
+      // Default toggle mode
+      const registered = globalShortcut.register(accelerator, () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("toggle-recording");
+        }
+      });
+      
+      if (registered) {
+        currentRecordingShortcut = accelerator;
+        console.log("Registered toggle shortcut:", accelerator);
+      }
+    }
+  } catch (e) {
+    console.error("Error registering shortcut:", e);
+  }
+}
+
+function buildAccelerator(shortcut) {
+  const parts = [];
+  
+  // Check if this is a single modifier key
+  if (shortcut.allowSingleModifier) {
+    // Handle single modifier keys
+    if (shortcut.key === "Meta" || shortcut.key === "Command") return "Cmd";
+    if (shortcut.key === "Control") return "Ctrl";
+    if (shortcut.key === "Alt" || shortcut.key === "Option") return "Alt";
+    if (shortcut.key === "Shift") return "Shift";
+  }
+  
+  // Add modifiers
+  if (shortcut.ctrl) parts.push("Ctrl");
+  if (shortcut.cmd) parts.push("Cmd");
+  if (shortcut.alt) parts.push("Alt");
+  if (shortcut.shift) parts.push("Shift");
+  
+  // Add the key
+  let key = shortcut.key;
+  
+  // Handle special keys
+  if (key === " ") key = "Space";
+  else if (key === "ArrowUp") key = "Up";
+  else if (key === "ArrowDown") key = "Down";
+  else if (key === "ArrowLeft") key = "Left";
+  else if (key === "ArrowRight") key = "Right";
+  else if (key === "Tab") key = "Tab";
+  else if (key === "Enter") key = "Return";
+  else if (key === "Escape") key = "Esc";
+  else if (key === "Backspace") key = "Backspace";
+  else if (key === "Delete") key = "Delete";
+  else if (key.length === 1) key = key.toUpperCase();
+  
+  // Don't add modifier keys as the main key
+  if (!["Control", "Meta", "Command", "Alt", "Option", "Shift"].includes(shortcut.key)) {
+    parts.push(key);
+  }
+  
+  return parts.join("+");
 }
 
 app.whenReady().then(() => {

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Voice Transcription</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./assets/styles/main.css" />
     <script>
       const { ipcRenderer } = require("electron");
       let isRecording = false;
@@ -13,22 +14,22 @@
 
       // Toast notification system
       function showToast(type, title, message, duration = 5000) {
-        const toastContainer = document.getElementById('toastContainer');
-        const toast = document.createElement('div');
+        const toastContainer = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
         toast.className = `toast ${type}`;
-        
+
         // Icons for different toast types
         const icons = {
           error: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>',
           success: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
-          info: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>'
+          info: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
         };
-        
+
         toast.innerHTML = `
           <div class="toast-icon">${icons[type] || icons.info}</div>
           <div class="toast-content">
             <div class="toast-title">${title}</div>
-            ${message ? `<div class="toast-message">${message}</div>` : ''}
+            ${message ? `<div class="toast-message">${message}</div>` : ""}
           </div>
           <button class="toast-close" onclick="this.parentElement.remove()">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -36,15 +37,15 @@
             </svg>
           </button>
         `;
-        
+
         toastContainer.appendChild(toast);
-        
+
         // Trigger animation
-        setTimeout(() => toast.classList.add('show'), 10);
-        
+        setTimeout(() => toast.classList.add("show"), 10);
+
         // Auto-remove after duration
         setTimeout(() => {
-          toast.classList.remove('show');
+          toast.classList.remove("show");
           setTimeout(() => toast.remove(), 300);
         }, duration);
       }
@@ -118,7 +119,7 @@
       function updateActiveModeIndicator() {
         const activeMode = getActiveMode();
         const indicator = document.getElementById("activeModeIndicator");
-        
+
         if (activeMode) {
           indicator.innerHTML = `
             <div class="flex items-center gap-2">
@@ -159,13 +160,13 @@
       let isCapturingShortcut = false;
       let capturedKeys = [];
       let currentKeys = new Set();
-      const DEFAULT_SHORTCUT = { 
+      const DEFAULT_SHORTCUT = {
         mode: "double-tap",
-        key: "\\", 
+        key: "\\",
         code: "Backslash",
-        doubleTap: true, 
+        doubleTap: true,
         display: "Double-tap \\",
-        allowSingleModifier: false
+        allowSingleModifier: false,
       };
 
       function getCustomShortcut() {
@@ -180,38 +181,38 @@
       }
 
       // Recording Mode Management
-      window.setRecordingMode = function(mode) {
+      window.setRecordingMode = function (mode) {
         const shortcut = getCustomShortcut();
         shortcut.mode = mode;
-        shortcut.doubleTap = (mode === 'double-tap');
+        shortcut.doubleTap = mode === "double-tap";
         saveCustomShortcut(shortcut);
         updateRecordingModeUI();
       };
 
       function updateRecordingModeUI() {
         const shortcut = getCustomShortcut();
-        const mode = shortcut.mode || 'toggle';
-        
+        const mode = shortcut.mode || "toggle";
+
         // Update button states
-        document.querySelectorAll('.recording-mode-btn').forEach(btn => {
-          btn.classList.remove('active');
+        document.querySelectorAll(".recording-mode-btn").forEach((btn) => {
+          btn.classList.remove("active");
         });
-        
+
         // Set active button
-        if (mode === 'toggle') {
-          document.getElementById('modeToggle').classList.add('active');
-          document.getElementById('modeDescription').textContent = 'Press once to start, press again to stop';
-        } else if (mode === 'hold') {
-          document.getElementById('modeHold').classList.add('active');
-          document.getElementById('modeDescription').textContent = 'Hold key down to record, release to stop (works best when app is focused)';
-        } else if (mode === 'double-tap') {
-          document.getElementById('modeDoubleTap').classList.add('active');
-          document.getElementById('modeDescription').textContent = 'Double-tap quickly to start/stop recording';
+        if (mode === "toggle") {
+          document.getElementById("modeToggle").classList.add("active");
+          document.getElementById("modeDescription").textContent = "Press once to start, press again to stop";
+        } else if (mode === "hold") {
+          document.getElementById("modeHold").classList.add("active");
+          document.getElementById("modeDescription").textContent = "Hold key down to record, release to stop (works best when app is focused)";
+        } else if (mode === "double-tap") {
+          document.getElementById("modeDoubleTap").classList.add("active");
+          document.getElementById("modeDescription").textContent = "Double-tap quickly to start/stop recording";
         }
       }
 
-      window.updateSingleModifierSetting = function() {
-        const checked = document.getElementById('allowSingleModifier').checked;
+      window.updateSingleModifierSetting = function () {
+        const checked = document.getElementById("allowSingleModifier").checked;
         const shortcut = getCustomShortcut();
         shortcut.allowSingleModifier = checked;
         saveCustomShortcut(shortcut);
@@ -223,10 +224,10 @@
         if (input) {
           input.value = shortcut.display;
         }
-        
+
         // Load recording mode
         updateRecordingModeUI();
-        
+
         // Load single modifier setting
         const singleModCheckbox = document.getElementById("allowSingleModifier");
         if (singleModCheckbox) {
@@ -234,7 +235,7 @@
         }
       }
 
-      window.resetToDefaultShortcut = function() {
+      window.resetToDefaultShortcut = function () {
         saveCustomShortcut(DEFAULT_SHORTCUT);
         loadShortcutSettings();
         updateShortcutInstructions();
@@ -242,8 +243,8 @@
 
       function updateShortcutInstructions() {
         const shortcut = getCustomShortcut();
-        const instructionElements = document.querySelectorAll('[data-shortcut-instruction]');
-        instructionElements.forEach(el => {
+        const instructionElements = document.querySelectorAll("[data-shortcut-instruction]");
+        instructionElements.forEach((el) => {
           el.textContent = `Shortcut: ${shortcut.display}`;
         });
       }
@@ -272,32 +273,32 @@
         });
 
         let lastKeyEvent = null;
-        
+
         input.addEventListener("keydown", (e) => {
           if (!isCapturingShortcut) return;
-          
+
           e.preventDefault();
           e.stopPropagation();
-          
+
           const key = e.key;
           const code = e.code;
-          
+
           // Handle Enter to save shortcut
           if (key === "Enter" && lastKeyEvent) {
             const existingShortcut = getCustomShortcut();
             const shortcut = {
-              mode: existingShortcut.mode || 'toggle',
+              mode: existingShortcut.mode || "toggle",
               key: lastKeyEvent.key,
               code: lastKeyEvent.code,
               ctrl: lastKeyEvent.ctrlKey,
               cmd: lastKeyEvent.metaKey,
               alt: lastKeyEvent.altKey,
               shift: lastKeyEvent.shiftKey,
-              doubleTap: existingShortcut.mode === 'double-tap',
+              doubleTap: existingShortcut.mode === "double-tap",
               display: input.value,
-              allowSingleModifier: existingShortcut.allowSingleModifier
+              allowSingleModifier: existingShortcut.allowSingleModifier,
             };
-            
+
             saveCustomShortcut(shortcut);
             isCapturingShortcut = false;
             input.classList.remove("bg-blue-50");
@@ -307,7 +308,7 @@
             updateShortcutInstructions();
             return;
           }
-          
+
           // Handle Escape to cancel
           if (key === "Escape") {
             isCapturingShortcut = false;
@@ -315,12 +316,12 @@
             input.blur();
             return;
           }
-          
+
           // Skip Enter and Escape for capture
           if (key !== "Enter" && key !== "Escape") {
             // Track current key
             currentKeys.add({ key, code });
-            
+
             // Store the last key event
             lastKeyEvent = {
               key: key,
@@ -328,9 +329,9 @@
               ctrlKey: e.ctrlKey,
               metaKey: e.metaKey,
               altKey: e.altKey,
-              shiftKey: e.shiftKey
+              shiftKey: e.shiftKey,
             };
-            
+
             // Update display
             input.value = formatShortcutDisplay(e);
           }
@@ -338,10 +339,10 @@
 
         input.addEventListener("keyup", (e) => {
           if (!isCapturingShortcut) return;
-          
+
           const key = e.key;
           // Remove key from tracking when released
-          currentKeys.forEach(k => {
+          currentKeys.forEach((k) => {
             if (k.key === key) currentKeys.delete(k);
           });
         });
@@ -352,13 +353,13 @@
         if (event.ctrlKey || event.metaKey) parts.push(process.platform === "darwin" ? "Cmd" : "Ctrl");
         if (event.altKey) parts.push("Alt");
         if (event.shiftKey) parts.push("Shift");
-        
+
         // Format the key nicely
         let key = event.key;
         if (key === " ") key = "Space";
         else if (key === "\\") key = "\\";
         else if (key.length === 1) key = key.toUpperCase();
-        
+
         parts.push(key);
         return parts.join("+");
       }
@@ -432,7 +433,7 @@
       window.editMode = function (modeId) {
         const modes = getModes();
         const mode = modes.find((m) => m.id === modeId);
-        
+
         if (mode) {
           editingModeId = modeId;
           document.getElementById("editModeName").value = mode.name;
@@ -501,10 +502,10 @@
       // Recording Functions
       window.toggleRecording = function () {
         const shortcut = getCustomShortcut();
-        const mode = shortcut.mode || 'toggle';
-        
+        const mode = shortcut.mode || "toggle";
+
         // For hold mode triggered by UI button, we need different behavior
-        if (mode === 'hold') {
+        if (mode === "hold") {
           // In hold mode, the button acts as a toggle since we can't detect mouse release properly
           if (isRecording) {
             isHoldingKey = false;
@@ -539,12 +540,12 @@
 
           mediaRecorder.onstop = () => {
             const recordingDuration = Date.now() - recordingStartTime;
-            
+
             if (recordingDuration < MINIMUM_RECORDING_DURATION) {
-              showToast('info', 'Recording Too Short', 'Please record for at least 0.5 seconds', 3000);
+              showToast("info", "Recording Too Short", "Please record for at least 0.5 seconds", 3000);
               return;
             }
-            
+
             const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
             sendAudioForTranscription(audioBlob);
           };
@@ -562,24 +563,24 @@
           console.error("Error starting recording:", error);
           isRecording = false;
           updateRecordButton();
-          
+
           let errorMessage = "Could not access microphone";
-          if (error.name === 'NotAllowedError') {
+          if (error.name === "NotAllowedError") {
             errorMessage = "Microphone access denied. Please check your permissions.";
-          } else if (error.name === 'NotFoundError') {
+          } else if (error.name === "NotFoundError") {
             errorMessage = "No microphone found. Please connect a microphone.";
-          } else if (error.name === 'NotReadableError') {
+          } else if (error.name === "NotReadableError") {
             errorMessage = "Microphone is already in use by another application.";
           }
-          
-          showToast('error', 'Microphone Error', errorMessage);
+
+          showToast("error", "Microphone Error", errorMessage);
         }
       }
 
       function stopRecording() {
         if (mediaRecorder && isRecording) {
           // Play mic deactivation sound immediately when stopping
-          micOnSound.play().catch((e) => console.log("Could not play deactivate sound:", e));
+          micOnSound.play().catch((e) => console.log("Could not play sound:", e));
           mediaRecorder.stop();
           mediaRecorder.stream.getTracks().forEach((track) => track.stop());
           isRecording = false;
@@ -666,28 +667,28 @@
           updateTranscription(result.text);
         } else {
           // Parse error message for user-friendly display
-          let errorTitle = 'Transcription Error';
+          let errorTitle = "Transcription Error";
           let errorMessage = result.error;
-          
-          if (result.error.includes('Audio file might be corrupted')) {
-            errorTitle = 'Audio Error';
-            errorMessage = 'The recording might be too short or corrupted. Try recording for at least 1 second.';
-          } else if (result.error.includes('API key')) {
-            errorTitle = 'API Key Error';
-            errorMessage = 'Please check your OpenAI API key in settings.';
-          } else if (result.error.includes('Could not access microphone')) {
-            errorTitle = 'Microphone Error';
-            errorMessage = 'Unable to access microphone. Please check permissions.';
-          } else if (result.error.includes('quota')) {
-            errorTitle = 'Quota Exceeded';
-            errorMessage = 'Your OpenAI API quota has been exceeded.';
-          } else if (result.error.includes('rate limit')) {
-            errorTitle = 'Rate Limited';
-            errorMessage = 'Too many requests. Please wait a moment and try again.';
+
+          if (result.error.includes("Audio file might be corrupted")) {
+            errorTitle = "Audio Error";
+            errorMessage = "The recording might be too short or corrupted. Try recording for at least 1 second.";
+          } else if (result.error.includes("API key")) {
+            errorTitle = "API Key Error";
+            errorMessage = "Please check your OpenAI API key in settings.";
+          } else if (result.error.includes("Could not access microphone")) {
+            errorTitle = "Microphone Error";
+            errorMessage = "Unable to access microphone. Please check permissions.";
+          } else if (result.error.includes("quota")) {
+            errorTitle = "Quota Exceeded";
+            errorMessage = "Your OpenAI API quota has been exceeded.";
+          } else if (result.error.includes("rate limit")) {
+            errorTitle = "Rate Limited";
+            errorMessage = "Too many requests. Please wait a moment and try again.";
           }
-          
-          showToast('error', errorTitle, errorMessage, 7000);
-          console.error('Transcription error:', result.error);
+
+          showToast("error", errorTitle, errorMessage, 7000);
+          console.error("Transcription error:", result.error);
         }
       });
 
@@ -696,11 +697,11 @@
         const recordPage = document.getElementById("recordPage");
         if (recordPage && !recordPage.classList.contains("hidden")) {
           const shortcut = getCustomShortcut();
-          const mode = shortcut.mode || 'toggle';
-          
+          const mode = shortcut.mode || "toggle";
+
           // For hold mode from global shortcut, we can't detect release, so use toggle
           // When window is focused, the keydown/keyup handlers will provide proper hold behavior
-          if (mode === 'hold' && document.hasFocus()) {
+          if (mode === "hold" && document.hasFocus()) {
             // Let the keydown/keyup handlers manage hold-to-record when focused
             // This message is likely from unfocused state, so toggle
             if (!isHoldingKey) {
@@ -725,7 +726,6 @@
           stopRecording();
         }
       });
-
 
       // Legacy support for old message name
       ipcRenderer.on("backslash-double-tap", () => {
@@ -755,37 +755,31 @@
       let lastKeyTime = 0;
       let isHoldingKey = false;
       let holdStartTime = 0;
-      
+
       function handleKeyDown(event) {
         // Don't trigger shortcuts while capturing a new shortcut
         if (isCapturingShortcut) return;
-        
+
         // Don't handle if we're typing in an input field (except when it's the shortcut capture field)
         const activeElement = document.activeElement;
-        if (activeElement && activeElement.tagName && 
-            (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') &&
-            activeElement.id !== 'recordShortcut') {
+        if (activeElement && activeElement.tagName && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA") && activeElement.id !== "recordShortcut") {
           return;
         }
-        
+
         const shortcut = getCustomShortcut();
-        const mode = shortcut.mode || 'toggle';
-        
+        const mode = shortcut.mode || "toggle";
+
         // Check if the current key matches the custom shortcut
-        const keyMatches = (event.key === shortcut.key || event.code === shortcut.code);
-        const modifiersMatch = 
-          (event.ctrlKey === (shortcut.ctrl || false)) &&
-          (event.metaKey === (shortcut.cmd || false)) &&
-          (event.altKey === (shortcut.alt || false)) &&
-          (event.shiftKey === (shortcut.shift || false));
-        
+        const keyMatches = event.key === shortcut.key || event.code === shortcut.code;
+        const modifiersMatch = event.ctrlKey === (shortcut.ctrl || false) && event.metaKey === (shortcut.cmd || false) && event.altKey === (shortcut.alt || false) && event.shiftKey === (shortcut.shift || false);
+
         if (keyMatches && modifiersMatch) {
           const recordPage = document.getElementById("recordPage");
           if (!recordPage || recordPage.classList.contains("hidden")) return;
-          
+
           event.preventDefault();
-          
-          if (mode === 'hold') {
+
+          if (mode === "hold") {
             // Hold-to-record mode - only start if not already holding
             // Also check for repeat events to avoid multiple starts
             if (!isHoldingKey && !isRecording && !event.repeat) {
@@ -794,12 +788,12 @@
               holdStartTime = Date.now();
               startRecording();
             }
-          } else if (mode === 'double-tap') {
+          } else if (mode === "double-tap") {
             // Double-tap mode - ignore repeat events
             if (!event.repeat) {
               const currentTime = Date.now();
               const timeDiff = currentTime - lastKeyTime;
-              
+
               if (timeDiff < doubleTapDelay && lastKeyTime > 0) {
                 // Double-tap detected
                 toggleRecording();
@@ -816,25 +810,22 @@
           }
         }
       }
-      
+
       function handleKeyUp(event) {
         if (isCapturingShortcut) return;
-        
+
         // For hold mode, we need to detect key release
         const shortcut = getCustomShortcut();
-        const mode = shortcut.mode || 'toggle';
-        
-        if (mode === 'hold' && isHoldingKey && isRecording) {
+        const mode = shortcut.mode || "toggle";
+
+        if (mode === "hold" && isHoldingKey && isRecording) {
           // Simplified key matching - check if the main key or any modifier was released
-          const keyMatches = (event.key === shortcut.key || event.code === shortcut.code);
-          
+          const keyMatches = event.key === shortcut.key || event.code === shortcut.code;
+
           // Check if any required modifier was released
-          const modifierReleased = 
-            (shortcut.ctrl && event.key === 'Control') ||
-            (shortcut.cmd && (event.key === 'Meta' || event.key === 'Command')) ||
-            (shortcut.alt && (event.key === 'Alt' || event.key === 'Option')) ||
-            (shortcut.shift && event.key === 'Shift');
-          
+          const modifierReleased =
+            (shortcut.ctrl && event.key === "Control") || (shortcut.cmd && (event.key === "Meta" || event.key === "Command")) || (shortcut.alt && (event.key === "Alt" || event.key === "Option")) || (shortcut.shift && event.key === "Shift");
+
           // Stop recording if the main key or any required modifier was released
           if (keyMatches || modifierReleased) {
             console.log("Hold-to-record: Stopping recording", {
@@ -842,9 +833,9 @@
               code: event.code,
               keyMatches,
               modifierReleased,
-              holdDuration: Date.now() - holdStartTime
+              holdDuration: Date.now() - holdStartTime,
             });
-            
+
             event.preventDefault();
             isHoldingKey = false;
             stopRecording();
@@ -856,7 +847,6 @@
 
       // Initialize UI - Single DOMContentLoaded handler
       document.addEventListener("DOMContentLoaded", () => {
-
         // Navigation is now handled by onclick attributes
 
         // Set up API key auto-save
@@ -879,73 +869,73 @@
         updateButtonStates();
         loadSettings();
         updateShortcutInstructions();
-        
+
         // Add window blur handler for hold-to-record failsafe
-        window.addEventListener('blur', () => {
+        window.addEventListener("blur", () => {
           const shortcut = getCustomShortcut();
-          if (shortcut.mode === 'hold' && isHoldingKey && isRecording) {
+          if (shortcut.mode === "hold" && isHoldingKey && isRecording) {
             console.log("Window lost focus during hold-to-record, stopping recording");
             isHoldingKey = false;
             stopRecording();
           }
         });
-        
+
         // Set up mic button event handlers
-        const micButton = document.getElementById('micButton');
+        const micButton = document.getElementById("micButton");
         if (micButton) {
           // For hold mode, handle mouse down/up events
           let isMouseDown = false;
-          
-          micButton.addEventListener('mousedown', (e) => {
+
+          micButton.addEventListener("mousedown", (e) => {
             const shortcut = getCustomShortcut();
-            if (shortcut.mode === 'hold' && !isRecording) {
+            if (shortcut.mode === "hold" && !isRecording) {
               isMouseDown = true;
               isHoldingKey = true;
               holdStartTime = Date.now();
               startRecording();
               e.preventDefault();
-            } else if (shortcut.mode !== 'hold') {
+            } else if (shortcut.mode !== "hold") {
               // For non-hold modes, use click event
               toggleRecording();
             }
           });
-          
-          micButton.addEventListener('mouseup', (e) => {
+
+          micButton.addEventListener("mouseup", (e) => {
             const shortcut = getCustomShortcut();
-            if (shortcut.mode === 'hold' && isMouseDown && isRecording) {
+            if (shortcut.mode === "hold" && isMouseDown && isRecording) {
               isMouseDown = false;
               isHoldingKey = false;
               stopRecording();
               e.preventDefault();
             }
           });
-          
-          micButton.addEventListener('mouseleave', (e) => {
+
+          micButton.addEventListener("mouseleave", (e) => {
             const shortcut = getCustomShortcut();
-            if (shortcut.mode === 'hold' && isMouseDown && isRecording) {
+            if (shortcut.mode === "hold" && isMouseDown && isRecording) {
               isMouseDown = false;
               isHoldingKey = false;
               stopRecording();
             }
           });
-          
+
           // Handle touch events for mobile/touch devices
-          micButton.addEventListener('touchstart', (e) => {
+          micButton.addEventListener("touchstart", (e) => {
             const shortcut = getCustomShortcut();
-            if (shortcut.mode === 'hold' && !isRecording) {
+            if (shortcut.mode === "hold" && !isRecording) {
               isMouseDown = true;
               isHoldingKey = true;
               holdStartTime = Date.now();
               startRecording();
               e.preventDefault();
-            } else if (shortcut.mode !== 'hold') {
+            } else if (shortcut.mode !== "hold") {
               toggleRecording();
             }
           });
-          
-          micButton.addEventListener('touchend', (e) => {
+
+          micButton.addEventListener("touchend", (e) => {
             const shortcut = getCustomShortcut();
-            if (shortcut.mode === 'hold' && isMouseDown && isRecording) {
+            if (shortcut.mode === "hold" && isMouseDown && isRecording) {
               isMouseDown = false;
               isHoldingKey = false;
               stopRecording();
@@ -955,120 +945,6 @@
         }
       });
     </script>
-    <style>
-      @keyframes pulse {
-        0% {
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-        }
-        70% {
-          box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-        }
-      }
-
-      .recording {
-        animation: pulse 2s infinite;
-      }
-
-      .nav-item svg {
-        transition: fill 0.2s ease;
-      }
-
-      .nav-item {
-        position: relative;
-        z-index: 10;
-      }
-
-      .nav-item:hover {
-        background: #f0f0f0 !important;
-        transform: scale(1.1);
-      }
-
-      .nav-item.bg-blue-500:hover svg {
-        fill: #4b5563 !important; /* gray-600 */
-      }
-
-      .recording-mode-btn.active {
-        background-color: #3b82f6;
-        color: white;
-        border-color: #3b82f6;
-      }
-      /* Toast notification styles */
-      .toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        min-width: 300px;
-        max-width: 400px;
-        padding: 16px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        transform: translateX(120%);
-        transition: transform 0.3s ease-in-out;
-        z-index: 1000;
-      }
-
-      .toast.show {
-        transform: translateX(0);
-      }
-
-      .toast.error {
-        background-color: #fee;
-        border: 1px solid #fcc;
-        color: #c00;
-      }
-
-      .toast.success {
-        background-color: #efe;
-        border: 1px solid #cfc;
-        color: #060;
-      }
-
-      .toast.info {
-        background-color: #e6f3ff;
-        border: 1px solid #b3d9ff;
-        color: #0066cc;
-      }
-
-      .toast-icon {
-        flex-shrink: 0;
-        width: 24px;
-        height: 24px;
-      }
-
-      .toast-content {
-        flex: 1;
-      }
-
-      .toast-title {
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-
-      .toast-message {
-        font-size: 14px;
-      }
-
-      .toast-close {
-        flex-shrink: 0;
-        width: 24px;
-        height: 24px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        opacity: 0.6;
-        transition: opacity 0.2s;
-      }
-
-      .toast-close:hover {
-        opacity: 1;
-      }
-    </style>
   </head>
   <body class="bg-gray-50 h-screen overflow-hidden font-sans">
     <!-- Toast Container -->
@@ -1104,21 +980,21 @@
                 <!-- Will be populated by JavaScript -->
               </div>
               <div class="flex gap-2">
-              <button
-                id="clearButton"
-                class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                onclick="clearTranscriptionManually()"
-                disabled
-              >
-                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                </svg>
-              </button>
-              <button id="copyButton" class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" onclick="copyTranscription()" disabled>
-                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
-                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-                </svg>
-              </button>
+                <button
+                  id="clearButton"
+                  class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onclick="clearTranscriptionManually()"
+                  disabled
+                >
+                  <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                  </svg>
+                </button>
+                <button id="copyButton" class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" onclick="copyTranscription()" disabled>
+                  <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                  </svg>
+                </button>
               </div>
             </div>
             <!-- Text area -->
@@ -1170,31 +1046,17 @@
                   <div class="mb-5">
                     <label class="block mb-2 text-sm font-medium text-gray-800">Recording Mode</label>
                     <div class="grid grid-cols-3 gap-3">
-                      <button
-                        id="modeToggle"
-                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
-                        onclick="setRecordingMode('toggle')"
-                      >
-                        Toggle
-                      </button>
-                      <button
-                        id="modeHold"
-                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
-                        onclick="setRecordingMode('hold')"
-                      >
+                      <button id="modeToggle" class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500" onclick="setRecordingMode('toggle')">Toggle</button>
+                      <button id="modeHold" class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500" onclick="setRecordingMode('hold')">
                         Hold to Record
                       </button>
-                      <button
-                        id="modeDoubleTap"
-                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
-                        onclick="setRecordingMode('double-tap')"
-                      >
+                      <button id="modeDoubleTap" class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500" onclick="setRecordingMode('double-tap')">
                         Double-tap
                       </button>
                     </div>
                     <p class="mt-2 text-xs text-gray-500" id="modeDescription">Press once to start, press again to stop</p>
                   </div>
-                  
+
                   <!-- Shortcut Input -->
                   <div class="mb-4">
                     <label class="block mb-2 text-sm font-medium text-gray-800" for="recordShortcut">Shortcut Keys</label>
@@ -1206,28 +1068,15 @@
                         placeholder="Click and press your shortcut"
                         readonly
                       />
-                      <button
-                        id="resetShortcut"
-                        class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200"
-                        onclick="resetToDefaultShortcut()"
-                      >
-                        Reset
-                      </button>
+                      <button id="resetShortcut" class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="resetToDefaultShortcut()">Reset</button>
                     </div>
                     <p class="mt-2 text-xs text-gray-500">Click the input field and press your desired key combination, then press Enter to save or Escape to cancel.</p>
                   </div>
-                  
+
                   <!-- Allow Single Modifier Option -->
                   <div class="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="allowSingleModifier"
-                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                      onchange="updateSingleModifierSetting()"
-                    />
-                    <label for="allowSingleModifier" class="ml-2 text-sm text-gray-700">
-                      Allow single modifier keys (Fn, Cmd, Alt)
-                    </label>
+                    <input type="checkbox" id="allowSingleModifier" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2" onchange="updateSingleModifierSetting()" />
+                    <label for="allowSingleModifier" class="ml-2 text-sm text-gray-700"> Allow single modifier keys (Fn, Cmd, Alt) </label>
                   </div>
                 </div>
               </div>

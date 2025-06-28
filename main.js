@@ -231,9 +231,25 @@ function setupIPC() {
         fs.unlinkSync(tempFilePath);
       }
 
+      // Extract more detailed error information
+      let errorMessage = error.message || "Failed to transcribe audio";
+      
+      // Check for specific OpenAI API errors
+      if (error.status === 400) {
+        if (error.code === 'invalid_value' && error.param === 'file') {
+          errorMessage = "Audio file might be corrupted or too short. Try recording for at least 1 second.";
+        }
+      } else if (error.status === 401) {
+        errorMessage = "Invalid API key. Please check your OpenAI API key in settings.";
+      } else if (error.status === 429) {
+        errorMessage = "Rate limit exceeded. Please wait a moment and try again.";
+      } else if (error.status === 402) {
+        errorMessage = "OpenAI API quota exceeded. Please check your account.";
+      }
+
       event.reply("transcription-result", {
         success: false,
-        error: error.message || "Failed to transcribe audio",
+        error: errorMessage,
       });
     }
   });

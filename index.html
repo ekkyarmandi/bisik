@@ -507,6 +507,9 @@
         }
       };
 
+      let recordingStartTime = 0;
+      const MINIMUM_RECORDING_DURATION = 500; // Minimum 0.5 seconds
+
       async function startRecording() {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -518,12 +521,20 @@
           };
 
           mediaRecorder.onstop = () => {
+            const recordingDuration = Date.now() - recordingStartTime;
+            
+            if (recordingDuration < MINIMUM_RECORDING_DURATION) {
+              showToast('info', 'Recording Too Short', 'Please record for at least 0.5 seconds', 3000);
+              return;
+            }
+            
             const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
             sendAudioForTranscription(audioBlob);
           };
 
           mediaRecorder.start();
           isRecording = true;
+          recordingStartTime = Date.now();
           updateRecordButton();
           clearTranscription();
           updateActiveModeIndicator(); // Update mode indicator when recording starts
@@ -636,7 +647,6 @@
       ipcRenderer.on("transcription-result", (event, result) => {
         if (result.success) {
           updateTranscription(result.text);
-          showToast('success', 'Transcription Complete', 'Text copied to clipboard');
         } else {
           // Parse error message for user-friendly display
           let errorTitle = 'Transcription Error';

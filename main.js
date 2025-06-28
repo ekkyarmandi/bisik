@@ -24,8 +24,9 @@ function createWindow() {
     height: 700,
     show: false, // Start hidden for background operation
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
     icon: path.join(__dirname, "assets", "mic-icon.svg"),
   });
@@ -35,7 +36,7 @@ function createWindow() {
     app.setName("Voice Transcription");
   }
 
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
 
   // Request saved shortcut after window loads
   mainWindow.webContents.on("did-finish-load", () => {

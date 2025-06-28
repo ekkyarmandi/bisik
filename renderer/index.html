@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voice Transcription</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./css/styles.css">
+    <script type="module" src="./js/main.js"></script>
+  </head>
+  <body class="bg-gray-50 h-screen overflow-hidden font-sans">
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+    <div class="flex w-full h-screen">
+      <!-- Sidebar -->
+      <div class="w-16 bg-white border-r border-gray-200 flex flex-col items-center py-5">
+        <div class="nav-item w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer mb-3 transition-all duration-200 bg-blue-500" data-page="record" onclick="showRecordPage()">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-white pointer-events-none">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.93V21h2v-3.07c3.39-.5 6-3.4 6-6.93h-2z" />
+          </svg>
+        </div>
+
+        <div class="nav-item w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer mb-3 transition-all duration-200 hover:bg-gray-100" data-page="settings" onclick="showSettingsPage()">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 fill-gray-600 pointer-events-none">
+            <path
+              d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col h-screen">
+        <!-- Record Page -->
+        <div class="page flex flex-col h-full p-5" id="recordPage">
+          <div class="flex-1 bg-white rounded-xl border border-gray-200 flex flex-col mb-5">
+            <!-- Header with action buttons -->
+            <div class="flex justify-between items-center p-4 border-b border-gray-200">
+              <!-- Active mode indicator -->
+              <div id="activeModeIndicator" class="flex items-center gap-2 text-sm">
+                <!-- Will be populated by JavaScript -->
+              </div>
+              <div class="flex gap-2">
+              <button
+                id="clearButton"
+                class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                onclick="clearTranscriptionManually()"
+                disabled
+              >
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                </svg>
+              </button>
+              <button id="copyButton" class="w-8 h-8 rounded-md flex items-center justify-center transition-all duration-200 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" onclick="copyTranscription()" disabled>
+                <svg viewBox="0 0 24 24" class="w-4 h-4 fill-gray-600">
+                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                </svg>
+              </button>
+              </div>
+            </div>
+            <!-- Text area -->
+            <textarea id="transcriptionText" class="flex-1 border-0 outline-none p-5 text-base leading-relaxed text-gray-800 resize-none placeholder-gray-400" placeholder="Your transcribed text will appear here..." readonly></textarea>
+          </div>
+          <!-- Record button and debug info -->
+          <div class="flex justify-between items-center">
+            <div class="text-xs text-gray-500">
+              <div data-shortcut-instruction>Shortcut: Double-tap \\</div>
+            </div>
+            <button id="micButton" class="w-16 h-16 rounded-full border-0 cursor-pointer flex items-center justify-center transition-all duration-300 shadow-lg bg-gray-600 hover:bg-red-500 hover:scale-105">
+              <svg id="micIcon" viewBox="0 0 24 24" class="w-6 h-6 fill-white">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.93V21h2v-3.07c3.39-.5 6-3.4 6-6.93h-2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Settings Page -->
+        <div class="page hidden flex-col h-full" id="settingsPage">
+          <div class="flex-1 overflow-y-auto p-5">
+            <div class="max-w-2xl mx-auto w-full">
+              <!-- OpenAI Configuration -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <h2 class="text-lg font-semibold text-gray-800">OpenAI Configuration</h2>
+                </div>
+                <div class="p-5">
+                  <div class="mb-5">
+                    <label class="block mb-2 text-sm font-medium text-gray-800" for="apiKey">API Key</label>
+                    <input
+                      type="password"
+                      id="apiKey"
+                      class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                      placeholder="Enter your OpenAI API key"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recording Shortcut Configuration -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <h2 class="text-lg font-semibold text-gray-800">Recording Shortcut</h2>
+                </div>
+                <div class="p-5">
+                  <!-- Recording Mode Selection -->
+                  <div class="mb-5">
+                    <label class="block mb-2 text-sm font-medium text-gray-800">Recording Mode</label>
+                    <div class="grid grid-cols-3 gap-3">
+                      <button
+                        id="modeToggle"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('toggle')"
+                      >
+                        Toggle
+                      </button>
+                      <button
+                        id="modeHold"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('hold')"
+                      >
+                        Hold to Record
+                      </button>
+                      <button
+                        id="modeDoubleTap"
+                        class="recording-mode-btn px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-all duration-200 hover:border-blue-500"
+                        onclick="setRecordingMode('double-tap')"
+                      >
+                        Double-tap
+                      </button>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500" id="modeDescription">Press once to start, press again to stop</p>
+                  </div>
+                  
+                  <!-- Shortcut Input -->
+                  <div class="mb-4">
+                    <label class="block mb-2 text-sm font-medium text-gray-800" for="recordShortcut">Shortcut Keys</label>
+                    <div class="flex gap-3">
+                      <input
+                        type="text"
+                        id="recordShortcut"
+                        class="flex-1 p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                        placeholder="Click and press your shortcut"
+                        readonly
+                      />
+                      <button
+                        id="resetShortcut"
+                        class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200"
+                        onclick="resetToDefaultShortcut()"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Click the input field and press your desired key combination, then press Enter to save or Escape to cancel.</p>
+                  </div>
+                  
+                  <!-- Allow Single Modifier Option -->
+                  <div class="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="allowSingleModifier"
+                      class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                      onchange="updateSingleModifierSetting()"
+                    />
+                    <label for="allowSingleModifier" class="ml-2 text-sm text-gray-700">
+                      Allow single modifier keys (Fn, Cmd, Alt)
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Modes Section -->
+              <div class="bg-white rounded-xl border border-gray-200 mb-5 overflow-hidden">
+                <div class="p-5 border-b border-gray-200">
+                  <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-semibold text-gray-800">Modes</h2>
+                    <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="showAddModePage()">Add Mode</button>
+                  </div>
+                </div>
+                <div class="p-5">
+                  <div id="modeList">
+                    <!-- Modes will be populated here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Mode Page -->
+        <div class="page hidden flex-col h-full p-5" id="addModePage">
+          <div class="max-w-2xl mx-auto w-full">
+            <!-- Header -->
+            <div class="flex items-center mb-5">
+              <button class="p-2 mr-3 rounded-md transition-colors duration-200 hover:bg-gray-100" onclick="showSettingsPage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" class="fill-gray-600">
+                  <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                </svg>
+              </button>
+              <h1 class="text-2xl font-semibold text-gray-800">Add New Mode</h1>
+            </div>
+
+            <!-- Form -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div class="p-5">
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="modeName">Mode Name</label>
+                  <input
+                    type="text"
+                    id="modeName"
+                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="Enter mode name"
+                  />
+                </div>
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="systemPrompt">System Prompt</label>
+                  <textarea
+                    id="systemPrompt"
+                    class="w-full min-h-32 p-3 border border-gray-300 rounded-lg text-sm outline-none resize-y leading-tight transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="e.g., 'Transcribe this technical discussion about AI' or 'Medical terminology: MRI, CT scan, ECG'"
+                  ></textarea>
+                  <p class="mt-1 text-xs text-gray-500">Provide context or specific vocabulary to improve transcription accuracy</p>
+                </div>
+                <div class="flex justify-end gap-3 mt-5">
+                  <button class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="showSettingsPage()">Cancel</button>
+                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="saveMode()">Save Mode</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Mode Page -->
+        <div class="page hidden flex-col h-full p-5" id="editModePage">
+          <div class="max-w-2xl mx-auto w-full">
+            <!-- Header -->
+            <div class="flex items-center mb-5">
+              <button class="p-2 mr-3 rounded-md transition-colors duration-200 hover:bg-gray-100" onclick="showSettingsPage()">
+                <svg width="20" height="20" viewBox="0 0 24 24" class="fill-gray-600">
+                  <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+                </svg>
+              </button>
+              <h1 class="text-2xl font-semibold text-gray-800">Edit Mode</h1>
+            </div>
+
+            <!-- Form -->
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div class="p-5">
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="editModeName">Mode Name</label>
+                  <input
+                    type="text"
+                    id="editModeName"
+                    class="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="Enter mode name"
+                  />
+                </div>
+                <div class="mb-5">
+                  <label class="block mb-2 text-sm font-medium text-gray-800" for="editSystemPrompt">System Prompt</label>
+                  <textarea
+                    id="editSystemPrompt"
+                    class="w-full min-h-32 p-3 border border-gray-300 rounded-lg text-sm outline-none resize-y leading-tight transition-colors duration-200 focus:border-blue-500 focus:ring-3 focus:ring-blue-100"
+                    placeholder="e.g., 'Transcribe this technical discussion about AI' or 'Medical terminology: MRI, CT scan, ECG'"
+                  ></textarea>
+                  <p class="mt-1 text-xs text-gray-500">Provide context or specific vocabulary to improve transcription accuracy</p>
+                </div>
+                <div class="flex justify-end gap-3 mt-5">
+                  <button class="px-4 py-2 bg-gray-100 text-gray-800 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-gray-200" onclick="showSettingsPage()">Cancel</button>
+                  <button class="px-4 py-2 bg-blue-500 text-white rounded-md text-sm font-medium transition-colors duration-200 hover:bg-blue-600" onclick="updateMode()">Update Mode</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

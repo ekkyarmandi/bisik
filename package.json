@@ -1,6 +1,6 @@
 {
   "name": "bisik",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Speech recognition app built with Electron JS and OpenAI Whisper API",
   "main": "main.js",
   "scripts": {

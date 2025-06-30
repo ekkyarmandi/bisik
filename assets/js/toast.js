@@ -73,13 +73,29 @@ class ToastNotification {
   }
 }
 
-// Create global instance
-const Toast = new ToastNotification();
+// Wait for DOM to be ready before creating instance
+let Toast = null;
+
+// Initialize on DOM load
+function initializeToast() {
+  if (!Toast) {
+    Toast = new ToastNotification();
+    window.Toast = Toast;
+  }
+}
 
 // Export for global use (backward compatibility)
 window.showToast = function (type, title, message, duration) {
+  if (!Toast) {
+    initializeToast();
+  }
   Toast.show(type, title, message, duration);
 };
 
-// Export the Toast instance for modern usage
-window.Toast = Toast; 
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeToast);
+} else {
+  // DOM is already loaded
+  initializeToast();
+} 
